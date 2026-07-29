@@ -45,7 +45,16 @@ workflows:
 
       - name: Install CocoaPods dependencies
         script: |
-          cd ios && pod install
+          set -e
+          # Xcode 16+ projects may use objectVersion 70; ensure xcodeproj gem supports it.
+          gem install xcodeproj -v 1.27.0 --user-install || true
+          gem install cocoapods -v 1.16.2 --user-install || true
+          cd ios
+          # Fallback if gem still rejects objectVersion 70
+          if grep -q "objectVersion = 70;" Runner.xcodeproj/project.pbxproj; then
+            sed -i.bak 's/objectVersion = 70;/objectVersion = 56;/' Runner.xcodeproj/project.pbxproj
+          fi
+          pod install --verbose
 
       - name: Set up keychain
         script: |
