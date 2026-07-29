@@ -68,7 +68,7 @@ jobs:
             --key-id "$APP_STORE_CONNECT_KEY_ID" \
             --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
             --create
-          app-store-connect fetch-signing-files com.DES.DESUserApp.OrderTrackingWidget \
+          app-store-connect fetch-signing-files com.DES.DESUserApp.widget \
             --type IOS_APP_STORE \
             --certificate-key=@env:APP_STORE_CONNECT_PRIVATE_KEY \
             --key-id "$APP_STORE_CONNECT_KEY_ID" \

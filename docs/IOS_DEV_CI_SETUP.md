@@ -8,12 +8,12 @@ Goal: **DEV** builds only → downloadable **IPA** + **TestFlight** (not App Sto
 |------|--------|
 | Team ID | `Z8LQP638P4` |
 | App Bundle ID | `com.DES.DESUserApp` |
-| Widget Bundle ID | `com.DES.DESUserApp.OrderTrackingWidget` |
+| Widget Bundle ID | `com.DES.DESUserApp.widget` |
 | ASC Key ID | `6SP3K86KWQ` |
 | ASC Issuer ID | `db04de63-863e-404d-8c33-c599ec8d27f1` |
 
 In [Apple Developer → Identifiers](https://developer.apple.com/account/resources/identifiers/list), create the Widget App ID if missing:
-`com.DES.DESUserApp.OrderTrackingWidget` (App → continue → enable Push Notifications if prompted).
+`com.DES.DESUserApp.widget` (App → continue → enable Push Notifications if prompted).
 
 ## Option A — Codemagic (recommended)
 
