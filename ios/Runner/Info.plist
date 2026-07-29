@@ -36,6 +36,9 @@
 		<true/>
 		<key>FirebaseScreenReportingEnabled</key>
 		<true/>
+		<!-- Skip App Store Connect "Missing Compliance" / export encryption questionnaire -->
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 		<key>MinimumOSVersion</key>
 		<string>14.0</string>
 		<key>NSDownloadsUsageDescription</key>
