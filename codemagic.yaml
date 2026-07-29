@@ -1,25 +1,11 @@
-# DES Customer App — iOS DEV builds (TestFlight + IPA artifact)
-# Not App Store production release. Not local Ubuntu builds.
-#
-# Setup (once):
-# 1) https://codemagic.io → Login with GitHub → add repo abanoubsam99/DES-Customer-APP
-# 2) Team settings → Integrations → Developer Portal → add App Store Connect API key:
-#      Key ID:    6SP3K86KWQ
-#      Issuer ID: db04de63-863e-404d-8c33-c599ec8d27f1
-#      .p8 file:  AuthKey_6SP3K86KWQ.p8
-# 3) Code signing identities → enable Automatic for:
-#      com.DES.DESUserApp
-#      com.DES.DESUserApp.OrderTrackingWidget
-# 4) Start workflow: ios-dev
+# DES Customer App — iOS DEV (TestFlight + IPA)
+# workflowId: ios-dev
 
 workflows:
   ios-dev:
     name: iOS Dev (TestFlight + IPA)
     max_build_duration: 120
     instance_type: mac_mini_m2
-
-    integrations:
-      app_store_connect: des_asc_api
 
     environment:
       flutter: stable
@@ -31,76 +17,91 @@ workflows:
       vars:
         BUNDLE_ID: com.DES.DESUserApp
         WIDGET_BUNDLE_ID: com.DES.DESUserApp.OrderTrackingWidget
-        XCODE_WORKSPACE: ios/Runner.xcworkspace
-        XCODE_SCHEME: Runner
+        APP_STORE_CONNECT_KEY_IDENTIFIER: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        APP_STORE_CONNECT_ISSUER_ID: $APP_STORE_CONNECT_ISSUER_ID
+        APP_STORE_CONNECT_PRIVATE_KEY: $APP_STORE_CONNECT_PRIVATE_KEY
+        CERTIFICATE_PRIVATE_KEY: $CERTIFICATE_PRIVATE_KEY
 
     triggering:
       events:
         - push
-        - pull_request
       branch_patterns:
-        - pattern: Des-v2
+        - pattern: main
           include: true
           source: true
-        - pattern: main
+        - pattern: Des-v2
           include: true
           source: true
       cancel_previous_builds: true
 
     scripts:
-      - name: Set build number from Codemagic
+      - name: Set build number
         script: |
           set -e
           BUILD_NUMBER="${BUILD_NUMBER:-$(($(date +%s)/60))}"
-          echo "Using build number: $BUILD_NUMBER"
+          echo "BUILD_NUMBER=$BUILD_NUMBER"
           cd ios
           agvtool new-version -all "$BUILD_NUMBER" || true
-          plutil -replace CFBundleVersion -string "$BUILD_NUMBER" Runner/Info.plist || true
 
-      - name: Get Flutter packages
+      - name: Flutter pub get
+        script: flutter pub get
+
+      - name: Install CocoaPods dependencies
         script: |
-          flutter pub get
+          cd ios && pod install
 
-      - name: Install CocoaPods
+      - name: Set up keychain
+        script: keychain initialize
+
+      - name: Fetch App Store signing files (app)
         script: |
-          cd ios
-          pod repo update || true
-          pod install
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
 
-      - name: Flutter build ipa (dev / TestFlight signing)
+      - name: Fetch App Store signing files (Live Activity widget)
+        script: |
+          app-store-connect fetch-signing-files "$WIDGET_BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+
+      - name: Add certificates to keychain
+        script: keychain add-certificates
+
+      - name: Apply provisioning profiles
+        script: xcode-project use-profiles
+
+      - name: Build IPA
         script: |
           set -e
+          BUILD_NUMBER="${BUILD_NUMBER:-$(($(date +%s)/60))}"
           flutter build ipa --release \
             --export-options-plist=/Users/builder/export_options.plist \
-            --build-number="${BUILD_NUMBER:-$(($(date +%s)/60))}"
+            --build-number="$BUILD_NUMBER"
 
       - name: Verify Widget Extension is embedded
         script: |
           set -e
           IPA=$(find build/ios/ipa -name "*.ipa" | head -1)
-          echo "IPA: $IPA"
-          unzip -l "$IPA" | grep -E 'appex|OrderTracking' || {
-            echo "ERROR: OrderTrackingWidgetExtension.appex not found inside IPA"
-            unzip -l "$IPA" | head -80
-            exit 1
-          }
-          echo "Widget extension present in IPA"
+          echo "IPA=$IPA"
+          unzip -l "$IPA" | grep -E 'appex|OrderTracking'
+          unzip -l "$IPA" | grep -q OrderTrackingWidgetExtension.appex
 
     artifacts:
       - build/ios/ipa/*.ipa
       - build/ios/archive/*.xcarchive
       - /tmp/xcodebuild_logs/*.log
-      - flutter_drive.log
 
     publishing:
       email:
         recipients:
-          - $CM_COMMIT_AUTHOR_EMAIL
+          - andrewnaiemf@gmail.com
         notify:
           success: true
           failure: true
       app_store_connect:
-        auth: integration
-        # DEV: upload to TestFlight only — do NOT submit for App Store review
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
         submit_to_app_store: false
