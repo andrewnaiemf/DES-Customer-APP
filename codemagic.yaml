@@ -64,6 +64,9 @@ workflows:
         script: |
           set -e
           echo "Using ASC key: $APP_STORE_CONNECT_KEY_IDENTIFIER"
+          # Widget entitlements include aps-environment — Push Notifications must be
+          # enabled on com.DES.DESUserApp.widget in Apple Developer (already done once).
+          # If profiles go INVALID after capability changes, delete them in ASC and rebuild.
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create

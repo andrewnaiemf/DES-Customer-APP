@@ -80,29 +80,17 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		EF8E20D92F2EDDD900F1C88B /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-				OrderTrackingWidgetLiveActivity.swift,
-				OrderTrackingWidget.swift,
-				OrderTrackingWidgetBundle.swift,
-				"OrderTrackingWidgetLiveActivity.swift.bak",
-			);
-			target = 97C146ED1CF9000F007C117D /* Runner */;
-		};
 		A1B2C3D42F3A000100000010 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
-				"OrderTrackingWidgetLiveActivity.swift.bak",
 			);
 			target = A1B2C3D42F3A000100000009 /* OrderTrackingWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		EF1EC1CE2F2ED2F700435C82 /* OrderTrackingWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (EF8E20D92F2EDDD900F1C88B /* PBXFileSystemSynchronizedBuildFileExceptionSet */, A1B2C3D42F3A000100000010 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = OrderTrackingWidget; sourceTree = "<group>"; };
+		EF1EC1CE2F2ED2F700435C82 /* OrderTrackingWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (A1B2C3D42F3A000100000010 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = OrderTrackingWidget; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
