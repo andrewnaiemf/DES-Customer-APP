@@ -1,5 +1,4 @@
 import 'package:app/helpers/cache_helper.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 
 class Constants {
   static String accessToken = CacheHelper.getString(key: "access_token") ?? "";
@@ -8,20 +7,25 @@ class Constants {
 }
 
 class ApiConstants {
-  // 🖥️ Local backend (/var/www/html/retail)
-  // Web/desktop → localhost | Android emulator → 10.0.2.2
-  static String get _localHost => kIsWeb ? 'http://localhost:8000' : 'http://10.0.2.2:8000';
+  // 🧪 DEV (TestFlight / Codemagic ios-dev)
+  // Server path: /var/www/html/retail_dev
+  // Domains: https://dev.destrading.online  (and alias https://dev.driveshield.net)
+  static const baseURL = 'https://dev.destrading.online';
+  static const baseURL2 = 'https://dev.destrading.online/api/';
+  static const stoarge = 'https://dev.destrading.online/storage/';
+  static const warrantyBaseURL = 'https://dev.destrading.online';
 
-  static String get baseURL => _localHost;
-  static String get baseURL2 => '$_localHost/api/';
-  static String get stoarge => '$_localHost/storage/';
-  static String get warrantyBaseURL => _localHost;
-
-  // 🌐 Production (switch manually when needed):
+  // 🌐 Production:
   // static const baseURL = 'https://driveshield.net';
   // static const baseURL2 = 'https://driveshield.net/api/';
   // static const stoarge = 'https://driveshield.net/storage/';
   // static const warrantyBaseURL = 'https://driveshield.net';
+
+  // 🖥️ Local backend (/var/www/html/retail):
+  // static const baseURL = 'http://localhost:8000';
+  // static const baseURL2 = 'http://localhost:8000/api/';
+  // static const stoarge = 'http://localhost:8000/storage/';
+  // static const warrantyBaseURL = 'http://localhost:8000';
 }
 
 class EndPoints {
