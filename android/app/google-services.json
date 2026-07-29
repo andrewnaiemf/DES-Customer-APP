@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "203050755191",
+    "project_id": "driveshield-d5a37",
+    "storage_bucket": "driveshield-d5a37.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:203050755191:android:595e01a7e8d37cbeee5272",
+        "android_client_info": {
+          "package_name": "com.DES.DESRider"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuiVuRdMeAsC1idqay8_rPmqTCf6AsjbE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:203050755191:android:624c98125b342589ee5272",
+        "android_client_info": {
+          "package_name": "com.DES.DESUserApp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuiVuRdMeAsC1idqay8_rPmqTCf6AsjbE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

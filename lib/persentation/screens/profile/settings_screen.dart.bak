@@ -1,0 +1,928 @@
+import 'package:app/business_logic/translation/cubit/translation_cubit.dart';
+import 'package:app/data/constants/assets.dart';
+import 'package:app/helpers/my_navigation.dart';
+import 'package:app/persentation/screens/auth/reset_change_password_screen.dart';
+import 'package:app/persentation/screens/orders/products_screen.dart';
+import 'package:app/persentation/screens/profile/change_password_screen.dart';
+import 'package:app/persentation/widgets/my_scaffold.dart';
+import 'package:app/persentation/widgets/textFormField.dart';
+import 'package:app/theme/colors.dart';
+import 'package:app/core/tour/app_tour_service.dart';
+import 'package:app/core/tour/tour_controller.dart';
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:app/helpers/cache_helper.dart';
+
+// ==================== App Theme Colors ====================
+class AppTheme {
+  static const Color yellow = Color.fromRGBO(217, 179, 29, 1.0);
+  static const Color black = Color(0xFF1D1D25);
+  static const Color background = Color(0xFF15172A);
+  static const Color dark = Color(0xFF081428);
+  static const Color purple = Color(0xFF6842E2);
+  static const Color lightGreen = Color(0xFF28E6C5);
+  static const Color darkGray = Color(0xFFC6CBE0);
+  static const Color lightGray = Color(0xFFF9FAFB);
+  static const Color red = Color(0xFFFF4757);
+}
+
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+  
+  // Biometric Authentication
+  final LocalAuthentication _localAuth = LocalAuthentication();
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
+
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
+    );
+
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MyScaffold(
+      title: 'Settings'.tr(),
+      showBackButton: true,
+      body: FadeTransition(
+        opacity: _fadeAnimation,
+        child: SlideTransition(
+          position: _slideAnimation,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                // Header Section
+                _buildHeader(),
+                // Settings Sections
+                _buildSecuritySection(),
+                _buildAppearanceSection(),
+                _buildLanguageSection(),
+                _buildAboutSection(),
+                // Bottom Spacing
+                const SizedBox(height: 100),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== Header ====================
+  Widget _buildHeader() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: _isDark
+              ? [AppTheme.purple.withOpacity(0.3), AppTheme.dark]
+              : [AppTheme.purple.withOpacity(0.1), Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: _isDark
+                ? Colors.black.withOpacity(0.3)
+                : AppTheme.purple.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Icon Container
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppTheme.purple, AppTheme.purple.withBlue(255)],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.purple.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.tune_rounded,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 18),
+          // Text Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Customize Your Experience'.tr(),
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: _isDark ? Colors.white : AppTheme.black,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Personalize app settings'.tr(),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _isDark ? AppTheme.darkGray : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== Security Section ====================
+  Widget _buildSecuritySection() {
+    return _SettingsSection(
+      title: 'Security'.tr(),
+      icon: Icons.shield_outlined,
+      isDark: _isDark,
+      children: [
+        _SettingsItem(
+          icon: Icons.lock_outline_rounded,
+          iconColor: AppTheme.purple,
+          title: 'Password'.tr(),
+          subtitle: 'Change your password'.tr(),
+          isDark: _isDark,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            MyNavigator.navigateTo(context, ChangePasswordScreen());
+          },
+          trailing: _buildArrowIcon(),
+        ),
+        _SettingsItem(
+          icon: Icons.fingerprint_rounded,
+          iconColor: AppTheme.lightGreen,
+          title: 'Biometric Login'.tr(),
+          subtitle: 'Use fingerprint or face ID'.tr(),
+          isDark: _isDark,
+          isLast: true,  // ✅ آخر عنصر الآن
+          trailing: _buildBiometricSwitch(),  // ✅ ربط بنظام البصمة
+        ),
+      ],
+    );
+  }
+
+  // ==================== Biometric Switch ====================
+  Widget _buildBiometricSwitch() {
+    return FutureBuilder<bool>(
+      future: _getBiometricEnabled(),
+      builder: (context, snapshot) {
+        final isEnabled = snapshot.data ?? false;
+        return _buildSwitch(isEnabled, (val) async {
+          await _handleBiometricToggle(val);
+        });
+      },
+    );
+  }
+
+  Future<bool> _getBiometricEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('biometric_enabled') ?? false;
+  }
+
+  Future<void> _handleBiometricToggle(bool value) async {
+    if (value) {
+      // تفعيل البصمة
+      await _enableBiometric();
+    } else {
+      // إلغاء تفعيل البصمة
+      await _disableBiometric();
+    }
+  }
+
+  Future<void> _enableBiometric() async {
+    try {
+      // 1. التحقق من توفر البصمة على الجهاز
+      bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
+      if (!canCheckBiometrics) {
+        _showSnackBar('Device does not support biometric authentication'.tr(), isError: true);
+        return;
+      }
+
+      // 2. التحقق من تسجيل الدخول
+      bool isLoggedIn = CacheHelper.getBool(key: "is_logged_in") ?? false;
+      String? token = CacheHelper.getString(key: "access_token");
+      
+      if (!isLoggedIn || token == null) {
+        _showSnackBar('please login first to activate fingerprint'.tr(), isError: true);
+        return;
+      }
+
+      // 3. التحقق من وجود بيانات الاعتماد المحفوظة
+      String? phone = await _secureStorage.read(key: 'phone');
+      String? password = await _secureStorage.read(key: 'password');
+
+      if (phone == null || password == null || phone.isEmpty || password.isEmpty) {
+        _showSnackBar('No saved credentials found. Please login again.'.tr(), isError: true);
+        return;
+      }
+
+      // 4. المصادقة باستخدام البصمة للتأكد من أنها تعمل
+      bool authenticated = await _localAuth.authenticate(
+        localizedReason: 'Authenticate to enable biometric login'.tr(),
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      if (authenticated) {
+        // 5. حفظ التفعيل
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('biometric_enabled', true);
+        setState(() {});
+        _showSnackBar('Biometric login enabled successfully'.tr(), isError: false);
+      } else {
+        _showSnackBar('Biometric authentication failed'.tr(), isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Error enabling biometric: ${e.toString()}'.tr(), isError: true);
+    }
+  }
+
+  Future<void> _disableBiometric() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('biometric_enabled', false);
+    setState(() {});
+    _showSnackBar('Biometric login disabled'.tr(), isError: false);
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppTheme.red : AppTheme.lightGreen,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  // ==================== Appearance Section ====================
+  Widget _buildAppearanceSection() {
+    return Consumer<AppThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return _SettingsSection(
+          title: 'Appearance'.tr(),
+          icon: Icons.palette_outlined,
+          isDark: _isDark,
+          children: [
+            _SettingsItem(
+              icon: themeProvider.isDarkMode
+                  ? Icons.dark_mode_rounded
+                  : Icons.light_mode_rounded,
+              iconColor: themeProvider.isDarkMode
+                  ? AppTheme.purple
+                  : AppTheme.yellow,
+              title: 'Dark Mode'.tr(),
+              subtitle: themeProvider.isDarkMode
+                  ? 'Currently using dark theme'.tr()
+                  : 'Currently using light theme'.tr(),
+              isDark: _isDark,
+              isLast: true,
+              trailing: _buildAnimatedThemeSwitch(themeProvider),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAnimatedThemeSwitch(AppThemeProvider themeProvider) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        themeProvider.toggleTheme();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: 70,
+        height: 36,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: themeProvider.isDarkMode
+                ? [AppTheme.purple, AppTheme.purple.withBlue(255)]
+                : [AppTheme.darkGray.withOpacity(0.3), AppTheme.darkGray.withOpacity(0.2)],
+          ),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          alignment: themeProvider.isDarkMode
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  themeProvider.isDarkMode
+                      ? Icons.nights_stay_rounded
+                      : Icons.wb_sunny_rounded,
+                  key: ValueKey(themeProvider.isDarkMode),
+                  size: 18,
+                  color: themeProvider.isDarkMode
+                      ? AppTheme.purple
+                      : AppTheme.yellow,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== Language Section ====================
+  Widget _buildLanguageSection() {
+    return _SettingsSection(
+      title: 'Language'.tr(),
+      icon: Icons.language_rounded,
+      isDark: _isDark,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.lightGreen.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.translate_rounded,
+                      color: AppTheme.lightGreen,
+                      size: 22,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'App Language'.tr(),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: _isDark ? Colors.white : AppTheme.black,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Choose your preferred language'.tr(),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _isDark ? AppTheme.darkGray : Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              // Language Options
+              _buildLanguageOptions(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLanguageOptions() {
+    return Row(
+      children: [
+        Expanded(
+          child: _LanguageOption(
+            language: 'العربية',
+            flag: '🇸🇦',
+            isSelected: context.locale.languageCode == 'ar',
+            isDark: _isDark,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              TranslationCubit.get(context).changAppLang(context, 'ar');
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _LanguageOption(
+            language: 'English',
+            flag: '🇺🇸',
+            isSelected: context.locale.languageCode == 'en',
+            isDark: _isDark,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              TranslationCubit.get(context).changAppLang(context, 'en');
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==================== About Section ====================
+  Widget _buildAboutSection() {
+    return _SettingsSection(
+      title: 'About'.tr(),
+      icon: Icons.info_outline_rounded,
+      isDark: _isDark,
+      children: [
+        _SettingsItem(
+          icon: Icons.help_outline_rounded,
+          iconColor: AppTheme.purple,
+          title: 'الجولة الإرشادية',
+          subtitle: 'شاهد شرح التطبيق مرة أخرى',
+          isDark: _isDark,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _showRestartTourDialog();
+          },
+          trailing: _buildArrowIcon(),
+        ),
+        _SettingsItem(
+          icon: Icons.privacy_tip_outlined,
+          iconColor: AppTheme.lightGreen,
+          title: 'Privacy Policy'.tr(),
+          subtitle: 'How we handle your data'.tr(),
+          isDark: _isDark,
+          onTap: () async {
+            HapticFeedback.lightImpact();
+            final url = Uri.parse('https://destrading.net/privacy-policy/');
+            if (await canLaunchUrl(url)) {
+              await launchUrl(url, mode: LaunchMode.externalApplication);
+            }
+          },
+          trailing: _buildArrowIcon(),
+        ),
+        _SettingsItem(
+          icon: Icons.info_outline_rounded,
+          iconColor: AppTheme.darkGray,
+          title: 'App Version'.tr(),
+          subtitle: 'Version 1.0.0',
+          isDark: _isDark,
+          isLast: true,
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _isDark
+                  ? AppTheme.lightGreen.withOpacity(0.2)
+                  : AppTheme.lightGreen.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'Latest'.tr(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.lightGreen,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==================== Helper Widgets ====================
+  Widget _buildArrowIcon() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: _isDark
+            ? Colors.white.withOpacity(0.1)
+            : AppTheme.lightGray,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(
+        context.locale.languageCode == 'ar'
+            ? Icons.arrow_back_ios_rounded
+            : Icons.arrow_forward_ios_rounded,
+        color: _isDark ? AppTheme.darkGray : Colors.grey[400],
+        size: 14,
+      ),
+    );
+  }
+
+  Widget _buildSwitch(bool value, Function(bool) onChanged) {
+    return Switch.adaptive(
+      value: value,
+      onChanged: onChanged,
+      activeColor: AppTheme.purple,
+      activeTrackColor: AppTheme.purple.withOpacity(0.3),
+    );
+  }
+}
+
+// ==================== Settings Section Widget ====================
+class _SettingsSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final bool isDark;
+  final List<Widget> children;
+
+  const _SettingsSection({
+    required this.title,
+    required this.icon,
+    required this.isDark,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.dark : Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppTheme.purple.withOpacity(0.2)
+                        : AppTheme.purple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: isDark ? AppTheme.lightGreen : AppTheme.purple,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppTheme.darkGray : Colors.grey[600],
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Divider
+          Container(
+            height: 1,
+            margin: const EdgeInsets.symmetric(horizontal: 20),
+            color: isDark
+                ? Colors.white.withOpacity(0.05)
+                : AppTheme.darkGray.withOpacity(0.2),
+          ),
+          // Children
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+// ==================== Settings Item Widget ====================
+class _SettingsItem extends StatefulWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final bool isDark;
+  final bool isLast;
+  final VoidCallback? onTap;
+  final Widget? trailing;
+
+  const _SettingsItem({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.isDark,
+    this.isLast = false,
+    this.onTap,
+    this.trailing,
+  });
+
+  @override
+  State<_SettingsItem> createState() => _SettingsItemState();
+}
+
+class _SettingsItemState extends State<_SettingsItem> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) => setState(() => _isPressed = false),
+      onTapCancel: () => setState(() => _isPressed = false),
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: _isPressed
+              ? (widget.isDark
+              ? Colors.white.withOpacity(0.05)
+              : AppTheme.lightGray)
+              : Colors.transparent,
+          borderRadius: BorderRadius.vertical(
+            bottom: widget.isLast ? const Radius.circular(24) : Radius.zero,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Icon
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: widget.iconColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                widget.icon,
+                color: widget.iconColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            // Text
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: widget.isDark ? Colors.white : AppTheme.black,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: widget.isDark ? AppTheme.darkGray : Colors.grey[500],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Trailing
+            if (widget.trailing != null) widget.trailing!,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ==================== Language Option Widget ====================
+class _LanguageOption extends StatelessWidget {
+  final String language;
+  final String flag;
+  final bool isSelected;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _LanguageOption({
+    required this.language,
+    required this.flag,
+    required this.isSelected,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? LinearGradient(
+            colors: [AppTheme.purple, AppTheme.purple.withBlue(255)],
+          )
+              : null,
+          color: isSelected
+              ? null
+              : (isDark
+              ? Colors.white.withOpacity(0.05)
+              : AppTheme.lightGray),
+          borderRadius: BorderRadius.circular(16),
+          border: isSelected
+              ? null
+              : Border.all(
+            color: isDark
+                ? Colors.white.withOpacity(0.1)
+                : AppTheme.darkGray.withOpacity(0.3),
+          ),
+          boxShadow: isSelected
+              ? [
+            BoxShadow(
+              color: AppTheme.purple.withOpacity(0.3),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ]
+              : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              flag,
+              style: const TextStyle(fontSize: 22),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              language,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark ? Colors.white : AppTheme.black),
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+  // ==================== Show Restart Tour Dialog ====================
+  void _showRestartTourDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: _isDark ? AppTheme.dark : Colors.white,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.purple.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.help_outline_rounded, color: AppTheme.purple, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'الجولة الإرشادية',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: _isDark ? Colors.white : AppTheme.black,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'هل تريد مشاهدة الجولة الإرشادية مرة أخرى؟ سيتم عرض شرح لجميع ميزات التطبيق.',
+          style: TextStyle(fontSize: 15, height: 1.5, color: _isDark ? AppTheme.darkGray : Colors.grey[700]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await AppTourService.instance.resetAllTours();
+              if (context.mounted) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+                Future.delayed(const Duration(milliseconds: 500), () {
+                  TourController().startHomeTour(force: true);
+                });
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.purple, foregroundColor: Colors.white),
+            child: const Text('إعادة الجولة'),
+          ),
+        ],
+      ),
+    );
+  }

@@ -1,0 +1,396 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔧 Order Tracking Helper
+// ═══════════════════════════════════════════════════════════════════════════
+// Helper functions لتسهيل استخدام Live Order Tracking
+//
+// Path: lib/core/live_tracking/helpers/order_tracking_helper.dart
+// ═══════════════════════════════════════════════════════════════════════════
+
+import 'dart:developer';
+
+import '../models/order_tracking_model.dart';
+import '../services/live_order_tracking_service.dart';
+import 'package:app/models/order/order_model.dart';
+import 'package:app/network/services/orders_services.dart';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔧 Order Tracking Helper
+// ═══════════════════════════════════════════════════════════════════════════
+class OrderTrackingHelper {
+  OrderTrackingHelper._(); // Private constructor
+
+  static final _service = LiveOrderTrackingService();
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎯 Quick Access Getters
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// الحصول على الطلب الحالي
+  static OrderTrackingModel? get currentTracking => _service.currentTracking;
+
+  /// هل يوجد تتبع نشط
+  static bool get hasActiveTracking => _service.hasActiveTracking;
+
+  /// هل تم تهيئة الخدمة
+  static bool get isInitialized => _service.isInitialized;
+
+  /// Stream للتحديثات
+  static Stream<OrderTrackingModel?> get trackingStream =>
+      _service.trackingStream;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🚀 Initialization
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// تهيئة الخدمة
+  static Future<void> initialize() async {
+    await _service.initialize();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎬 Start Tracking
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// بدء التتبع من بيانات بسيطة
+  static Future<bool> startTracking({
+    required String orderId,
+    required String orderReference,
+    required String shippingStatus,
+    DateTime? orderDate,
+    String? driverName,
+    String? driverPhone,
+    String? driverImage,
+    String? estimatedDeliveryTime,
+    String? deliveryAddress,
+    double? totalAmount,
+    String? currency,
+  }) async {
+    try {
+      final status = OrderTrackingStatus.fromString(shippingStatus);
+
+      if (!status.isActive) {
+        log('[TrackingHelper] Order $orderReference is not active (${status.name}), skipping');
+        return false;
+      }
+
+      final tracking = OrderTrackingModel.withDefaultSteps(
+        orderId: orderId,
+        orderReference: orderReference,
+        status: status,
+        startTime: orderDate,
+        driverName: driverName,
+        driverPhone: driverPhone,
+        driverImage: driverImage,
+        estimatedDeliveryTime: estimatedDeliveryTime,
+        deliveryAddress: deliveryAddress,
+        totalAmount: totalAmount,
+        currency: currency,
+      );
+
+      return await _service.startTracking(tracking);
+    } catch (e) {
+      log('[TrackingHelper] Error starting tracking: $e');
+      return false;
+    }
+  }
+
+  /// بدء التتبع من OrderTrackingModel
+  static Future<bool> startTrackingWithModel(OrderTrackingModel tracking) async {
+    return await _service.startTracking(tracking);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔄 Update Tracking
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// تحديث التتبع من بيانات بسيطة
+  static Future<bool> updateTracking({
+    required String orderId,
+    required String orderReference,
+    required String shippingStatus,
+    String? driverName,
+    String? driverPhone,
+    String? estimatedDeliveryTime,
+    String? deliveryAddress,
+  }) async {
+    try {
+      final status = OrderTrackingStatus.fromString(shippingStatus);
+
+      final tracking = OrderTrackingModel.withDefaultSteps(
+        orderId: orderId,
+        orderReference: orderReference,
+        status: status,
+        driverName: driverName,
+        driverPhone: driverPhone,
+        estimatedDeliveryTime: estimatedDeliveryTime,
+        deliveryAddress: deliveryAddress,
+      );
+
+      return await _service.updateTracking(tracking);
+    } catch (e) {
+      log('[TrackingHelper] Error updating tracking: $e');
+      return false;
+    }
+  }
+
+  /// تحديث التتبع من OrderTrackingModel
+  static Future<bool> updateTrackingWithModel(OrderTrackingModel tracking) async {
+    return await _service.updateTracking(tracking);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🛑 Stop Tracking
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// إيقاف التتبع
+  static Future<void> stopTracking({bool silent = false}) async {
+    await _service.stopTracking(silent: silent);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 📩 FCM Notification Handling
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// معالجة إشعار FCM
+  static Future<void> handleFCMNotification(Map<String, dynamic> data) async {
+    try {
+      log('[TrackingHelper] 🔔 Handling FCM notification');
+      log('[TrackingHelper] 📦 Data: $data');
+
+      // استخراج البيانات - مع دعم أسماء متعددة للحقول
+      final orderId = _extractString(data, [
+        'order_id', 'orderId', 'id', 
+        'order', 'orderid', 'ORDER_ID'
+      ]);
+      
+      final orderRef = _extractString(data, [
+        'order_reference', 'orderReference', 'reference', 'ref',
+        'order_ref', 'orderRef', 'order_number', 'orderNumber'
+      ]);
+      
+      final status = _extractString(data, [
+        'shipping_status', 'shippingStatus', 'status',
+        'order_status', 'orderStatus', 'delivery_status'
+      ]);
+
+      log('[TrackingHelper] 📋 Extracted - OrderID: $orderId, Ref: $orderRef, Status: $status');
+
+      // إذا لم نجد order_id، جرب استخدام reference كـ ID
+      final finalOrderId = orderId ?? orderRef ?? '';
+      final finalOrderRef = orderRef ?? orderId ?? '';
+
+      if (finalOrderId.isEmpty || status == null) {
+        log('[TrackingHelper] ⚠️ Missing required notification data');
+        log('[TrackingHelper] ❌ Cannot start/update Live Activity without order_id and status');
+        return;
+      }
+
+      // استخراج البيانات الإضافية
+      final driverName = _extractString(data, [
+        'driver_name', 'driverName', 'driver',
+        'courier_name', 'courierName'
+      ]);
+      
+      final driverPhone = _extractString(data, [
+        'driver_phone', 'driverPhone',
+        'courier_phone', 'courierPhone'
+      ]);
+      
+      final estimatedTime = _extractString(data, [
+        'estimated_delivery', 'estimatedDelivery', 'eta',
+        'delivery_time', 'deliveryTime', 'estimated_time'
+      ]);
+      
+      final address = _extractString(data, [
+        'delivery_address', 'deliveryAddress', 'address',
+        'location', 'delivery_location'
+      ]);
+
+      // التحقق من نوع الإشعار والحالة
+      final trackingStatus = OrderTrackingStatus.fromString(status);
+      log('[TrackingHelper] 📊 Tracking Status: ${trackingStatus.name} (${trackingStatus.arabicText})');
+
+      // التحقق من وجود تتبع نشط
+      if (hasActiveTracking) {
+        log('[TrackingHelper] 🔄 Updating existing tracking...');
+        final success = await updateTracking(
+          orderId: finalOrderId,
+          orderReference: finalOrderRef,
+          shippingStatus: status,
+          driverName: driverName,
+          driverPhone: driverPhone,
+          estimatedDeliveryTime: estimatedTime,
+          deliveryAddress: address,
+        );
+        
+        if (success) {
+          log('[TrackingHelper] ✅ Live Activity updated successfully!');
+        } else {
+          log('[TrackingHelper] ❌ Failed to update Live Activity');
+        }
+      } else {
+        log('[TrackingHelper] 🆕 Starting new tracking...');
+        final success = await startTracking(
+          orderId: finalOrderId,
+          orderReference: finalOrderRef,
+          shippingStatus: status,
+          driverName: driverName,
+          driverPhone: driverPhone,
+          estimatedDeliveryTime: estimatedTime,
+          deliveryAddress: address,
+        );
+        
+        if (success) {
+          log('[TrackingHelper] ✅ Live Activity started successfully!');
+        } else {
+          log('[TrackingHelper] ❌ Failed to start Live Activity');
+        }
+      }
+
+      log('[TrackingHelper] ✅ FCM notification handled successfully');
+    } catch (e) {
+      log('[TrackingHelper] ❌ Error handling FCM notification: $e');
+    }
+  }
+
+  /// Alias for handleFCMNotification (for backward compatibility)
+  static Future<void> handleOrderNotification(Map<String, dynamic> data) async {
+    await handleFCMNotification(data);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 📦 Start Tracking from OrderModel
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// بدء التتبع من OrderModel
+  static Future<bool> startTrackingFromOrder(dynamic order) async {
+    try {
+      // Extract order data
+      final orderId = order.id?.toString() ?? '';
+      final orderRef = order.reference ?? '';
+      final shippingStatus = order.shippingStatus ?? '';
+      
+      if (orderId.isEmpty || orderRef.isEmpty || shippingStatus.isEmpty) {
+        log('[TrackingHelper] Missing required order data');
+        return false;
+      }
+
+      // Extract optional data
+      final location = order.location;
+      final total = order.totalWithTax ?? order.total;
+      
+      return await startTracking(
+        orderId: orderId,
+        orderReference: orderRef,
+        shippingStatus: shippingStatus,
+        orderDate: order.checkoutDate,
+        deliveryAddress: location,
+        totalAmount: total?.toDouble(),
+        currency: 'SAR',
+      );
+    } catch (e) {
+      log('[TrackingHelper] Error starting tracking from order: $e');
+      return false;
+    }
+  }
+
+  /// استخراج قيمة نصية من البيانات
+  static String? _extractString(Map<String, dynamic> data, List<String> keys) {
+    for (final key in keys) {
+      final value = data[key];
+      if (value != null && value.toString().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔧 Utility Methods
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// تنظيف الموارد
+  static Future<void> dispose() async {
+    await _service.dispose();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎨 UI Helpers
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// الحصول على لون الحالة
+  static getStatusColor(OrderTrackingStatus status) => status.color;
+
+  /// الحصول على لون الحالة الفاتح
+  static getStatusLightColor(OrderTrackingStatus status) => status.lightColor;
+
+  /// الحصول على أيقونة الحالة
+  static getStatusIcon(OrderTrackingStatus status) => status.icon;
+
+  /// الحصول على نص الحالة
+  static getStatusText(OrderTrackingStatus status) => status.arabicText;
+
+  /// الحصول على وصف الحالة
+  static getStatusDescription(OrderTrackingStatus status) => status.description;
+
+  /// الحصول على نسبة التقدم
+  static getStatusProgress(OrderTrackingStatus status) => status.progressPercentage;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔄 Real-time Updates
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// تهيئة التحديثات التلقائية
+  /// NOTE: Disabled because API doesn't support GET for single order
+  /// Instead, we rely on periodic refresh of orders list
+  static void setupRealtimeUpdates() {
+    // Disabled - API returns 404 for GET /orders/{id}
+    // _service.onFetchTrackingUpdate = _fetchOrderUpdate;
+    log('[TrackingHelper] ⚠️ Real-time polling disabled (API limitation)');
+  }
+
+  /// جلب تحديث الطلب من السيرفر
+  /// DISABLED: API doesn't support GET for single order
+  static Future<OrderTrackingModel?> _fetchOrderUpdate(String orderId) async {
+    // API doesn't support this endpoint
+    return null;
+  }
+
+  /// تحويل OrderModel إلى OrderTrackingModel
+  static OrderTrackingModel? _convertOrderModelToTracking(OrderModel order) {
+    try {
+      if (order.shippingStatus == null) return null;
+
+      final status = OrderTrackingStatus.fromString(order.shippingStatus!);
+
+      return OrderTrackingModel.withDefaultSteps(
+        orderId: order.id.toString(),
+        orderReference: order.reference ?? 'N/A',
+        status: status,
+        startTime: order.checkoutDate,
+        deliveryAddress: order.location,
+        totalAmount: order.totalWithTax,
+        currency: 'SAR',
+        // يمكن إضافة معلومات السائق إذا كانت متوفرة
+      );
+    } catch (e) {
+      log('[TrackingHelper] Error converting OrderModel: $e');
+      return null;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 📦 Extension on OrderTrackingModel for easy updates
+// ═══════════════════════════════════════════════════════════════════════════
+extension OrderTrackingModelX on OrderTrackingModel {
+  /// بدء التتبع
+  Future<bool> startTracking() async {
+    return await OrderTrackingHelper.startTrackingWithModel(this);
+  }
+
+  /// تحديث التتبع
+  Future<bool> updateTracking() async {
+    return await OrderTrackingHelper.updateTrackingWithModel(this);
+  }
+}

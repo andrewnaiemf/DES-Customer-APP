@@ -1,0 +1,211 @@
+name: app
+description: A new Flutter project.
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+version: 1.4.6+48
+
+environment:
+  sdk: '>=3.1.3 <4.0.0'
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.2
+  flutter_bloc: ^8.1.2
+  bloc: ^8.1.1
+  provider: ^6.1.1
+  intl: ^0.20.2
+  flutter_svg: ^2.2.4
+#  flutter_speed_dial: ^6.2.0
+#  carousel_slider: ^4.1.1
+  dio: ^5.0.2
+  local_auth: ^2.1.7
+  flutter_secure_storage: ^8.0.0
+  firebase_core: ^3.0.0
+#  firebase_storage: ^11.0.6
+#  firebase_auth: ^5.0.0
+  url_launcher: ^6.1.7
+  # 🔗 Deep Links (App Links / Universal Links) + Share
+  app_links: ^6.3.2
+  share_plus: ^10.1.4
+  cached_network_image: ^3.2.3
+  shimmer: ^3.0.0
+  file_picker: ^8.1.7
+  path_provider: ^2.0.12
+  permission_handler: ^11.3.0
+  image_picker: ^0.8.6
+  firebase_messaging: ^15.0.0
+  easy_localization: ^3.0.8
+  shared_preferences: ^2.1.1
+  string_validator: ^1.0.0
+  flutter_native_splash: ^2.4.5
+  flutter_launcher_icons: ^0.13.1
+#  flutter_advanced_networkimage_2: ^2.0.1
+#  cloud_firestore: ^5.0.0
+  pin_code_fields: ^8.0.1
+  auto_size_text: ^3.0.0
+#  loading_animation_widget: ^1.2.0+4
+#  fl_chart: ^0.64.0
+  gif_view: ^1.0.3
+  pdf: ^3.10.7
+  open_file: ^3.5.11
+  fluttertoast: ^9.0.0
+  #  device_info:
+#  percent_indicator: ^4.2.3
+  syncfusion_flutter_charts: ^33.1.49
+  upgrader: ^13.0.0
+#  screenshot: ^2.1.0
+  flutter_local_notifications: ^17.0.0
+#  firebase_app_check: ^0.3.0
+#  page_view_indicators: ^2.0.0
+  rxdart: ^0.27.7
+  photo_view: ^0.15.0
+  connectivity_plus: ^6.0.5
+  equatable: ^2.0.5
+  # Live Order Tracking
+  # live_activities: ^2.0.0
+#  flutter_foreground_task: ^8.0.0
+#  wakelock_plus: ^1.3.3
+#  web_socket_channel: ^3.0.3
+  package_info_plus: ^9.0.1
+
+# ⚙️ حل تعارض win32 بين share_plus و package_info_plus.
+# رغم إن التطبيق موبايل، Flutter بيعمل compile للكود الخاص بويندوز في الباكدجين دول
+# أثناء عمل kernel snapshot. share_plus محتاج win32 5.x (بيستخدم OSVERSIONINFOEX.wReserved)
+# و package_info_plus 10.x محتاج win32 6.x (الـ API اتغير). مفيش نسخة win32 واحدة ترضي الاتنين،
+# فبنثبّت package_info_plus على 9.x (اللي بيستخدم win32 5.x زي share_plus) ونقفل win32 على 5.x.
+dependency_overrides:
+  win32: ^5.5.3
+
+flutter_native_splash:
+  color: "#081428"
+  image: assets/images/icon.png
+
+  android: true
+  ios: true
+
+  android_gravity: center
+  ios_content_mode: center
+
+  android_12:
+    color: "#081428"
+    image: assets/images/icon.png
+
+#
+#flutter_native_splash:
+#  color: "#081428"
+#  image: assets/images/icon.png
+#  android: true
+#  ios: true
+#
+#android_12:
+#    color: "#081428"
+#    image: assets/images/icon.png
+
+
+dev_dependencies:
+  flutter_launcher_icons: "^0.13.1"
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/logo.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#081428"
+  adaptive_icon_foreground: "assets/images/logo.png"
+
+
+  # localization_generator: ^1.0.0
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+#  flutter_lints: ^2.0.0
+#  json_serializable: ^6.7.1
+#  build_runner: ^2.4.7
+#  json_annotation: ^4.8.1
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  # To add assets to your application, add an assets section, like this:
+  assets:
+    - assets/svg/
+    - assets/images/
+    - assets/translations/
+    - assets/images/icon.png
+  fonts:
+      - family: SF-Arabic
+        fonts:
+          - asset: assets/fonts/SF-Arabic.ttf
+            weight: 400
+          - asset: assets/fonts/SF-Arabic-Rounded.ttf
+            weight: 500
+      - family: GraphikArabic
+        fonts:
+#          - asset: assets/fonts/GraphikArabic-Thin.ttf
+#            weight: 100
+#          - asset: assets/fonts/GraphikArabic-ExtraLight.ttf
+#            weight: 200
+          - asset: assets/fonts/GraphikArabic-Light.ttf
+            weight: 300
+          - asset: assets/fonts/GraphikArabic-Regular.ttf
+            weight: 400
+          - asset: assets/fonts/GraphikArabic-Medium.ttf
+            weight: 500
+          - asset: assets/fonts/GraphikArabic-Semibold.ttf
+            weight: 600
+          - asset: assets/fonts/GraphikArabic-Bold.ttf
+            weight: 700
+          - asset: assets/fonts/GraphikArabic-ExtraBold.ttf
+            weight: 800
+          - asset: assets/fonts/GraphikArabic-Black.ttf
+            weight: 900
+      - family: LeagueSpartan
+        fonts:
+          - asset: assets/fonts/LeagueSpartan-Light.ttf
+            weight: 100
+          - asset: assets/fonts/LeagueSpartan-Regular.ttf
+            weight: 200
+          - asset: assets/fonts/LeagueSpartan-Medium.ttf
+            weight: 300
+          - asset: assets/fonts/LeagueSpartan-SemiBold.ttf
+            weight: 400
+
+  #
+  # For details regarding fonts from package dependencies,
+  # see https://flutter.dev/custom-fonts/#from-packages

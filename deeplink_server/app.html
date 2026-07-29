@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DES Trading</title>
+  <style>
+    body { font-family: -apple-system, Roboto, Arial, sans-serif; text-align: center;
+           padding: 48px 16px; color: #1D1D25; background: #F5F7FA; }
+    .spin { width: 36px; height: 36px; margin: 24px auto; border: 4px solid #ddd;
+            border-top-color: #6842E2; border-radius: 50%; animation: r 1s linear infinite; }
+    @keyframes r { to { transform: rotate(360deg); } }
+    .store { display: inline-block; margin-top: 12px; padding: 12px 22px; border-radius: 10px;
+             background: #6842E2; color: #fff; text-decoration: none; font-weight: 600; }
+    .muted { color: #6b6b76; font-size: 14px; }
+    a.link { color: #6842E2; }
+  </style>
+</head>
+<body>
+  <h2>DES Trading</h2>
+  <div class="spin"></div>
+  <p>جارٍ فتح التطبيق…</p>
+  <p class="muted">Opening the app…</p>
+
+  <!-- زر يدوي يظهر كـ fallback لو التحويل الأوتوماتيكي اتمنع (شائع في
+       المتصفحات الداخلية زي واتساب). المستخدم يقدر يفتح التطبيق بنفسه. -->
+  <p id="manual" style="display:none">
+    <a class="store" id="openApp" href="#">افتح في التطبيق · Open in app</a>
+    <br /><br />
+    <a class="link" id="openStore" href="#">معندكش التطبيق؟ نزّله من المتجر</a>
+  </p>
+
+  <script>
+    (function () {
+      // ⚠️ لو غيّرت روابط الستور، عدّلها هنا (نفس اللي في api_constants.dart)
+      var APP_STORE  = "https://apps.apple.com/us/app/des-trading/id6497325292";
+      var PLAY_STORE = "https://play.google.com/store/apps/details?id=com.DES.DESUserApp";
+      // لازم يطابق DeepLinkConfig.scheme + intent-filter/Info.plist
+      var SCHEME = "des";
+
+      var ua = navigator.userAgent || navigator.vendor || window.opera;
+      var isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+      var isAndroid = /android/i.test(ua);
+      var STORE = isAndroid ? PLAY_STORE : APP_STORE; // ديسكتوب → آب ستور افتراضياً
+
+      // حوّل المسار الحالي (/app/home) لرابط الـ custom scheme (des://app/home).
+      // ده بيخلي التطبيق المتسطّب يفتح حتى لو الـ Universal Link اتجاهل
+      // (زي ما بيحصل لما تدوس اللينك جوه متصفح واتساب الداخلي).
+      var path = location.pathname.replace(/^\/+/, ""); // "app/home"
+      var appUrl = SCHEME + "://" + path + (location.search || "");
+
+      // اربط الأزرار اليدوية.
+      document.getElementById("openApp").setAttribute("href", appUrl);
+      document.getElementById("openStore").setAttribute("href", STORE);
+
+      var fellBack = false;
+      function goStore() {
+        if (fellBack) return;
+        fellBack = true;
+        window.location.replace(STORE);
+      }
+
+      // لو التطبيق فتح، الصفحة بتروح للخلفية → نلغي التحويل للستور.
+      document.addEventListener("visibilitychange", function () {
+        if (document.hidden) fellBack = true;
+      });
+      window.addEventListener("pagehide", function () { fellBack = true; });
+      window.addEventListener("blur", function () { fellBack = true; });
+
+      // 1) جرّب تفتح التطبيق المتسطّب عبر الـ custom scheme.
+      try { window.location = appUrl; } catch (e) {}
+
+      // 2) لو لسه في الصفحة بعد فترة → التطبيق غالباً مش متسطّب → روح الستور.
+      //    (لو فتح التطبيق، الصفحة بقت hidden و fellBack=true فالتحويل بيتلغي.)
+      setTimeout(function () {
+        if (document.hidden) return; // التطبيق خد الدور
+        // أظهر الأزرار اليدوية كـ fallback نهائي لو التحويل الأوتوماتيكي اتمنع.
+        document.getElementById("manual").style.display = "block";
+        goStore();
+      }, 1500);
+    })();
+  </script>
+</body>
+</html>

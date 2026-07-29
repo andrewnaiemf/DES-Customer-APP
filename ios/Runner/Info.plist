@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<!-- ⚠️ مطلوب: تعطيل الـ deep linking المدمج في Flutter عشان ميتعارضش مع باكدج app_links.
+		     من غير الـ false دي، iOS بيفتح الأبلكيشن وبعدين يفتح Safari (لوب الـ Universal Link). -->
+		<key>FlutterDeepLinkingEnabled</key>
+		<false/>
+		<key>BGTaskSchedulerPermittedIdentifiers</key>
+		<array>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		</array>
+		<key>CADisableMinimumFrameDurationOnPhone</key>
+		<true/>
+		<key>CFBundleDevelopmentRegion</key>
+		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<key>CFBundleDisplayName</key>
+		<string>DES-Trading</string>
+		<key>CFBundleExecutable</key>
+		<string>$(EXECUTABLE_NAME)</string>
+		<key>CFBundleIdentifier</key>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>6.0</string>
+		<key>CFBundleName</key>
+		<string>DES Trading</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>$(MARKETING_VERSION)</string>
+		<key>CFBundleSignature</key>
+		<string>????</string>
+		<key>CFBundleVersion</key>
+		<string>$(CURRENT_PROJECT_VERSION)</string>
+		<key>FirebaseAppDelegateProxyEnabled</key>
+		<true/>
+		<key>FirebaseScreenReportingEnabled</key>
+		<true/>
+		<key>MinimumOSVersion</key>
+		<string>14.0</string>
+		<key>NSDownloadsUsageDescription</key>
+		<string>We need access to the Downloads directory to save PDF files.</string>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>sms</string>
+			<string>tel</string>
+			<string>http</string>
+			<string>https</string>
+		</array>
+		<key>LSRequiresIPhoneOS</key>
+		<true/>
+		<key>LSSupportsOpeningDocumentsInPlace</key>
+		<true/>
+		<key>UIApplicationSupportsIndirectInputEvents</key>
+		<true/>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>fetch</string>
+			<string>remote-notification</string>
+		</array>
+		<key>FirebaseMessagingAutoInitEnabled</key>
+		<true/>
+		<key>UILaunchStoryboardName</key>
+		<string>LaunchScreen</string>
+		<key>UIMainStoryboardFile</key>
+		<string>Main</string>
+		<key>UIStatusBarHidden</key>
+		<false/>
+		<key>UISupportedInterfaceOrientations</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		</array>
+		<key>UISupportedInterfaceOrientations~ipad</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationPortraitUpsideDown</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>NSFaceIDUsageDescription</key>
+		<string>by using face id You can log in easily and quickly</string>
+		<key>NSCameraUsageDescription</key>
+		<string>We need access to your camera to take photos for warranty registration.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Your app needs access to the photo library to allow users to upload photos for product listings.</string>
+		<!-- Local Network Usage -->
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>This app uses the local network for development and debugging purposes.</string>
+		<key>NSBonjourServices</key>
+		<array>
+			<string>_dartobservatory._tcp</string>
+		</array>
+		<!-- Live Activities Support -->
+		<key>NSSupportsLiveActivities</key>
+		<true/>
+		<key>NSSupportsLiveActivitiesFrequentUpdates</key>
+		<true/>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.DES.DESUserApp</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>app-1-203050755191-ios-deb060a1fc44ef31ee5272</string>
+				</array>
+			</dict>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.DES.DESUserApp.deeplink</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>des</string>
+				</array>
+			</dict>
+		</array>
+	</dict>
+</plist>

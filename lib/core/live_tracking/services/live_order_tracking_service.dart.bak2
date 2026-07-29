@@ -1,0 +1,594 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// 🚀 Live Order Tracking Service - Premium Edition
+// ═══════════════════════════════════════════════════════════════════════════
+// خدمة مركزية متطورة لإدارة تتبع الطلبات في الوقت الفعلي
+// تدعم iOS Live Activities و Android Foreground Notifications
+
+import 'dart:convert';
+import 'dart:developer';
+import 'dart:io';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:live_activities/live_activities.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+// Import models and widgets from the proper location
+import '../models/order_tracking_model.dart';
+import '../widgets/tracking_widgets.dart' show TrackingColors;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🚀 Live Order Tracking Service
+// ═══════════════════════════════════════════════════════════════════════════
+class LiveOrderTrackingService {
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔧 Singleton Pattern
+  // ═══════════════════════════════════════════════════════════════════════
+  static final LiveOrderTrackingService _instance =
+  LiveOrderTrackingService._internal();
+
+  factory LiveOrderTrackingService() => _instance;
+
+  LiveOrderTrackingService._internal();
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 📱 Properties
+  // ═══════════════════════════════════════════════════════════════════════
+  LiveActivities? _liveActivities;
+  FlutterLocalNotificationsPlugin? _notificationsPlugin;
+  SharedPreferences? _prefs;
+
+  String? _currentActivityId;
+  OrderTrackingModel? _currentTracking;
+  bool _isInitialized = false;
+  bool _isIOSLiveActivitiesAvailable = false;
+
+  // Stream Controllers for reactive updates
+  final _trackingStreamController = StreamController<OrderTrackingModel?>.broadcast();
+
+  // Constants
+  static const String _prefKeyCurrentOrder = 'live_tracking_current_order';
+  static const String _prefKeyActivityId = 'live_tracking_activity_id';
+  static const int _foregroundNotificationId = 99999;
+  static const String _channelId = 'order_tracking_channel';
+  static const String _channelName = 'تتبع الطلبات';
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔍 Getters
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// الطلب الحالي قيد التتبع
+  OrderTrackingModel? get currentTracking => _currentTracking;
+
+  /// هل يوجد تتبع نشط
+  bool get hasActiveTracking => _currentTracking?.isActive ?? false;
+
+  /// هل تم التهيئة
+  bool get isInitialized => _isInitialized;
+
+  /// Stream للتحديثات
+  Stream<OrderTrackingModel?> get trackingStream => _trackingStreamController.stream;
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎯 Initialization
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// تهيئة الخدمة
+  Future<void> initialize() async {
+    if (_isInitialized) {
+      _log('⚠️ Service already initialized');
+      return;
+    }
+
+    try {
+      _log('🚀 Initializing LiveOrderTrackingService...');
+
+      // Initialize SharedPreferences
+      _prefs = await SharedPreferences.getInstance();
+
+      // Load saved tracking
+      await _loadCurrentTracking();
+
+      // Platform-specific initialization
+      if (Platform.isIOS) {
+        await _initializeIOS();
+      } else if (Platform.isAndroid) {
+        await _initializeAndroid();
+      }
+
+      _isInitialized = true;
+      _log('✅ LiveOrderTrackingService initialized successfully');
+
+      // Restore active tracking if exists
+      if (_currentTracking != null && _currentTracking!.isActive) {
+        await _restoreTracking();
+      }
+    } catch (e, stack) {
+      _log('⚠️ Error initializing LiveOrderTrackingService: $e');
+      _log('Stack: $stack');
+      _isInitialized = true; // Mark as initialized to prevent retry loops
+    }
+  }
+
+  /// تهيئة iOS
+  Future<void> _initializeIOS() async {
+    try {
+      _liveActivities = LiveActivities();
+
+      // Initialize with App Group ID (required for Live Activities)
+      // Using the existing App Group from Xcode
+      const appGroupId = 'group.com.desliveexpertservices.desCustomer';
+      await _liveActivities!.init(appGroupId: appGroupId);
+
+      _log('📱 iOS Live Activities initialized with App Group: $appGroupId');
+
+      // Check if Live Activities are supported
+      _isIOSLiveActivitiesAvailable =
+          await _liveActivities!.areActivitiesEnabled() ?? false;
+
+      _log('📱 iOS Live Activities available: $_isIOSLiveActivitiesAvailable');
+
+      // Load saved activity ID
+      _currentActivityId = _prefs?.getString(_prefKeyActivityId);
+    } catch (e) {
+      _log('⚠️ iOS Live Activities not available: $e');
+      _isIOSLiveActivitiesAvailable = false;
+    }
+  }
+
+  /// تهيئة Android
+  Future<void> _initializeAndroid() async {
+    try {
+      _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
+      // Request notification permission for Android 13+
+      final status = await Permission.notification.status;
+      if (!status.isGranted) {
+        _log('📱 Requesting notification permission...');
+        final result = await Permission.notification.request();
+        if (!result.isGranted) {
+          _log('❌ Notification permission denied');
+          return;
+        }
+      }
+
+      // Initialize plugin
+      const initSettings = InitializationSettings(
+        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      );
+
+      await _notificationsPlugin!.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _onNotificationTapped,
+      );
+
+      // Create notification channel
+      const channel = AndroidNotificationChannel(
+        _channelId,
+        _channelName,
+        description: 'إشعارات تتبع الطلبات في الوقت الفعلي',
+        importance: Importance.high,
+        enableVibration: false,
+        playSound: false,
+        showBadge: true,
+      );
+
+      await _notificationsPlugin!
+          .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(channel);
+
+      _log('✅ Android notifications initialized');
+    } catch (e) {
+      _log('❌ Error initializing Android notifications: $e');
+    }
+  }
+
+  /// معالجة النقر على الإشعار
+  void _onNotificationTapped(NotificationResponse response) {
+    _log('📱 Notification tapped: ${response.payload}');
+    HapticFeedback.lightImpact();
+    // يمكن إضافة navigation هنا
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🎬 Start Tracking
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// بدء تتبع طلب جديد
+  Future<bool> startTracking(OrderTrackingModel tracking) async {
+    try {
+      _log('🎬 Starting tracking for order: ${tracking.orderReference}');
+      _log('📱 Platform: ${Platform.isIOS ? "iOS" : "Android"}');
+      _log('🔧 Initialized: $_isInitialized');
+
+      // Ensure initialized
+      if (!_isInitialized) {
+        _log('⚠️ Not initialized, initializing now...');
+        await initialize();
+      }
+
+      // Stop any existing tracking
+      if (_currentTracking != null) {
+        _log('🛑 Stopping existing tracking...');
+        await stopTracking(silent: true);
+      }
+
+      // Set new tracking
+      _currentTracking = tracking;
+      await _saveCurrentTracking();
+      _log('💾 Tracking saved to preferences');
+
+      // Notify listeners
+      _trackingStreamController.add(_currentTracking);
+      _log('📢 Listeners notified');
+
+
+      // Start platform-specific tracking
+      bool success = false;
+
+      _log('🚀 Starting platform-specific tracking...');
+      
+      if (Platform.isIOS) {
+        _log('📱 Attempting iOS Live Activity...');
+        success = await _startIOSLiveActivity(tracking);
+        _log('iOS Live Activity result: $success');
+      } else if (Platform.isAndroid) {
+        _log('🤖 Attempting Android notification...');
+        success = await _showAndroidNotification(tracking);
+        _log('Android notification result: $success');
+      }
+
+      if (success) {
+        _log('✅ Tracking started successfully');
+        HapticFeedback.mediumImpact();
+      } else {
+        _log('⚠️ Platform-specific tracking failed');
+      }
+
+      return success;
+    } catch (e) {
+      _log('❌ Error starting tracking: $e');
+      return false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔄 Update Tracking
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// تحديث حالة التتبع
+  Future<bool> updateTracking(OrderTrackingModel tracking) async {
+    try {
+      _log('🔄 Updating tracking: ${tracking.orderReference} → ${tracking.status.name}');
+
+      // Check if status changed
+      final statusChanged = _currentTracking?.status != tracking.status;
+
+      // Update tracking
+      _currentTracking = tracking;
+      await _saveCurrentTracking();
+
+      // Notify listeners
+      _trackingStreamController.add(_currentTracking);
+
+      // Update platform-specific
+      bool success = false;
+
+      if (Platform.isIOS) {
+        success = await _updateIOSLiveActivity(tracking);
+      } else if (Platform.isAndroid) {
+        success = await _showAndroidNotification(tracking);
+      }
+
+      // Haptic feedback on status change
+      if (statusChanged && success) {
+        HapticFeedback.mediumImpact();
+      }
+
+      // Check if tracking should end
+      if (!tracking.isActive) {
+        _log('📦 Order completed, scheduling tracking end');
+        Future.delayed(const Duration(seconds: 5), () => stopTracking());
+      }
+
+      return success;
+    } catch (e) {
+      _log('❌ Error updating tracking: $e');
+      return false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🛑 Stop Tracking
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /// إيقاف التتبع
+  Future<void> stopTracking({bool silent = false}) async {
+    try {
+      _log('🛑 Stopping tracking${silent ? ' (silent)' : ''}');
+
+      if (Platform.isIOS) {
+        await _stopIOSLiveActivity();
+      } else if (Platform.isAndroid) {
+        await _cancelAndroidNotification();
+      }
+
+      _currentTracking = null;
+      _currentActivityId = null;
+      await _clearCurrentTracking();
+
+      // Notify listeners
+      _trackingStreamController.add(null);
+
+      if (!silent) {
+        HapticFeedback.lightImpact();
+      }
+
+      _log('✅ Tracking stopped');
+    } catch (e) {
+      _log('❌ Error stopping tracking: $e');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🍎 iOS Live Activity Methods
+  // ═══════════════════════════════════════════════════════════════════════
+
+  Future<bool> _startIOSLiveActivity(OrderTrackingModel tracking) async {
+    _log('🔍 _startIOSLiveActivity called');
+    _log('  - Available: $_isIOSLiveActivitiesAvailable');
+    _log('  - Plugin: ${_liveActivities != null}');
+    
+    if (!_isIOSLiveActivitiesAvailable || _liveActivities == null) {
+      _log('❌ iOS Live Activities NOT available');
+      _log('  - Available flag: $_isIOSLiveActivitiesAvailable');
+      _log('  - Plugin exists: ${_liveActivities != null}');
+      return false;
+    }
+
+    try {
+      _log('� Activity data prepared:');
+      _log('  - orderId: ${tracking.orderId}');
+      _log('  - status: ${tracking.statusText}');
+      _log('  - reference: ${tracking.orderReference}');
+      _log('  - progress: ${tracking.progressPercentage}');
+      
+      _log('🚀 Calling createActivity...');
+      
+      // Create activity with all data combined and a custom activity ID
+      // API in v2.x: createActivity(Map<String, dynamic> data, String customId)
+      final activityData = {
+        // Fixed ActivityAttributes data
+        'orderId': tracking.orderId,
+        // Dynamic ContentState data
+        'status': tracking.statusText,
+        'orderReference': tracking.orderReference,
+        'estimatedTime': tracking.estimatedDeliveryTime ?? '',
+        'progress': tracking.progressPercentage,
+      };
+      
+      _currentActivityId = await _liveActivities!.createActivity(
+        activityData,
+        tracking.orderId, // Use order ID as the custom activity ID
+      );
+      
+      _log('📬 createActivity returned: $_currentActivityId');
+
+      if (_currentActivityId != null && _currentActivityId!.isNotEmpty) {
+        await _prefs?.setString(_prefKeyActivityId, _currentActivityId!);
+        _log('✅ iOS Live Activity created: $_currentActivityId');
+        return true;
+      } else {
+        _log('❌ Failed to create Live Activity - ID is null or empty');
+        return false;
+      }
+    } catch (e, stack) {
+      _log('❌ Error starting iOS Live Activity: $e');
+      _log('Stack: $stack');
+      return false;
+    }
+  }
+
+  Future<bool> _updateIOSLiveActivity(OrderTrackingModel tracking) async {
+    if (!_isIOSLiveActivitiesAvailable || _liveActivities == null) {
+      return false;
+    }
+
+    try {
+      if (_currentActivityId == null) {
+        return await _startIOSLiveActivity(tracking);
+      }
+
+      final data = _buildIOSActivityData(tracking);
+      await _liveActivities!.updateActivity(_currentActivityId!, data);
+
+      _log('✅ iOS Live Activity updated');
+      return true;
+    } catch (e) {
+      _log('❌ Error updating iOS Live Activity: $e');
+      return false;
+    }
+  }
+
+  Future<void> _stopIOSLiveActivity() async {
+    if (_currentActivityId == null || _liveActivities == null) return;
+
+    try {
+      await _liveActivities!.endActivity(_currentActivityId!);
+      _currentActivityId = null;
+      await _prefs?.remove(_prefKeyActivityId);
+      _log('✅ iOS Live Activity ended');
+    } catch (e) {
+      _log('❌ Error ending iOS Live Activity: $e');
+    }
+  }
+
+  Map<String, dynamic> _buildIOSActivityData(OrderTrackingModel tracking) {
+    return {
+      // ActivityAttributes (fixed/static data)
+      'orderId': tracking.orderId,
+      
+      // ContentState (dynamic data)
+      'status': tracking.statusText,
+      'orderReference': tracking.orderReference,
+      'estimatedTime': tracking.estimatedDeliveryTime ?? '',
+      'progress': tracking.progressPercentage, // 0.0 to 1.0
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🤖 Android Notification Methods
+  // ═══════════════════════════════════════════════════════════════════════
+
+  Future<bool> _showAndroidNotification(OrderTrackingModel tracking) async {
+    if (_notificationsPlugin == null) {
+      _log('⚠️ Notifications plugin not initialized');
+      return false;
+    }
+
+    try {
+      final progressPercent = (tracking.progressPercentage * 100).toInt();
+
+      final androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: 'إشعارات تتبع الطلبات في الوقت الفعلي',
+        importance: Importance.high,
+        priority: Priority.high,
+        visibility: NotificationVisibility.public, // 🔔 عرض على Lock Screen
+        ongoing: tracking.isActive,
+        autoCancel: !tracking.isActive,
+        showProgress: true,
+        maxProgress: 100,
+        progress: progressPercent,
+        onlyAlertOnce: true,
+        category: AndroidNotificationCategory.progress,
+        styleInformation: BigTextStyleInformation(
+          _buildNotificationBody(tracking),
+          contentTitle: '📦 طلب #${tracking.orderReference}',
+          summaryText: tracking.statusText,
+          htmlFormatContent: true,
+          htmlFormatTitle: true,
+        ),
+        color: Color(tracking.color.value),
+        colorized: true,
+        enableVibration: false,
+        playSound: false,
+        ticker: tracking.statusText,
+      );
+
+      await _notificationsPlugin!.show(
+        _foregroundNotificationId,
+        '📦 طلب #${tracking.orderReference}',
+        tracking.statusText,
+        NotificationDetails(android: androidDetails),
+        payload: jsonEncode(tracking.toJson()),
+      );
+
+      _log('✅ Android notification shown');
+      return true;
+    } catch (e) {
+      _log('❌ Error showing Android notification: $e');
+      return false;
+    }
+  }
+
+  Future<void> _cancelAndroidNotification() async {
+    try {
+      await _notificationsPlugin?.cancel(_foregroundNotificationId);
+      _log('✅ Android notification cancelled');
+    } catch (e) {
+      _log('❌ Error cancelling Android notification: $e');
+    }
+  }
+
+  String _buildNotificationBody(OrderTrackingModel tracking) {
+    final buffer = StringBuffer();
+
+    buffer.writeln('${tracking.status.icon.codePoint.toRadixString(16)} ${tracking.statusText}');
+    buffer.writeln(tracking.statusDescription);
+
+    if (tracking.driverName?.isNotEmpty ?? false) {
+      buffer.writeln('\n🚗 السائق: ${tracking.driverName}');
+    }
+
+    if (tracking.estimatedDeliveryTime?.isNotEmpty ?? false) {
+      buffer.writeln('⏰ الوصول المتوقع: ${tracking.estimatedDeliveryTime}');
+    }
+
+    buffer.writeln('\n📊 التقدم: ${(tracking.progressPercentage * 100).toInt()}%');
+
+    return buffer.toString();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 💾 Storage Methods
+  // ═══════════════════════════════════════════════════════════════════════
+
+  Future<void> _saveCurrentTracking() async {
+    if (_currentTracking == null || _prefs == null) return;
+
+    try {
+      final json = jsonEncode(_currentTracking!.toJson());
+      await _prefs!.setString(_prefKeyCurrentOrder, json);
+      _log('💾 Tracking saved');
+    } catch (e) {
+      _log('❌ Error saving tracking: $e');
+    }
+  }
+
+  Future<void> _loadCurrentTracking() async {
+    try {
+      final json = _prefs?.getString(_prefKeyCurrentOrder);
+      if (json != null && json.isNotEmpty) {
+        _currentTracking = OrderTrackingModel.fromJson(jsonDecode(json));
+        _log('📂 Loaded tracking: ${_currentTracking?.orderReference}');
+      }
+    } catch (e) {
+      _log('❌ Error loading tracking: $e');
+      await _clearCurrentTracking();
+    }
+  }
+
+  Future<void> _clearCurrentTracking() async {
+    try {
+      await _prefs?.remove(_prefKeyCurrentOrder);
+      await _prefs?.remove(_prefKeyActivityId);
+      _log('🗑️ Tracking cleared');
+    } catch (e) {
+      _log('❌ Error clearing tracking: $e');
+    }
+  }
+
+  Future<void> _restoreTracking() async {
+    if (_currentTracking == null) return;
+
+    _log('🔄 Restoring active tracking...');
+
+    if (Platform.isIOS) {
+      await _updateIOSLiveActivity(_currentTracking!);
+    } else if (Platform.isAndroid) {
+      await _showAndroidNotification(_currentTracking!);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // 🔧 Utility Methods
+  // ═══════════════════════════════════════════════════════════════════════
+
+  void _log(String message) {
+    final formattedMessage = '[LiveTracking] $message';
+    log(formattedMessage);
+    print(formattedMessage); // Also print to console for easier debugging
+  }
+
+  /// تنظيف الموارد
+  Future<void> dispose() async {
+    await _trackingStreamController.close();
+    _log('🗑️ Service disposed');
+  }
+}
