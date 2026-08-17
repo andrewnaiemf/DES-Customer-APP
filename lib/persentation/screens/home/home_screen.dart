@@ -30,6 +30,7 @@ import 'package:app/persentation/screens/notifications/notifications_screen.dart
 import 'package:app/persentation/screens/orders/order_details_screen.dart';
 import 'package:app/persentation/screens/overdue/overdue_screen.dart';
 import 'package:app/persentation/screens/receipt/receipt_screen.dart';
+import 'package:app/models/user/user_model.dart';
 import 'package:app/network/services/orders_services.dart';
 import 'package:app/models/order/order_model.dart';
 import 'package:app/persentation/widgets/columnChartsScreen.dart' hide AnimatedBuilder;
@@ -1062,7 +1063,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 👤 User Profile Card
   // ═══════════════════════════════════════════════════════════════════════
   Widget _buildUserProfileCard() {
-    dynamic user;
+    UserModel? user;
     try {
       user = ProfileCubit.get(context).userModel;
     } catch (e) {
@@ -1071,6 +1072,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
 
     final hour = DateTime.now().hour;
+    final companyName = () {
+      final fromUser = user?.displayName.trim() ?? '';
+      if (fromUser.isNotEmpty) return fromUser;
+      return '';
+    }();
 
     String greeting;
     IconData icon;
@@ -1139,7 +1145,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             child: Center(
               child: Text(
-                _getInitials(user?.name ?? 'U'),
+                _getInitials(companyName),
                 style: TextStyle(
                   fontSize: ResponsiveUtils.font(context, 18),
                   fontWeight: FontWeight.bold,
@@ -1174,7 +1180,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ),
                 SizedBox(height: ResponsiveUtils.spacing(context, 2)),
                 Text(
-                  user?.name ?? 'User',
+                  companyName.isNotEmpty ? companyName : '...',
                   style: TextStyle(
                     fontSize: ResponsiveUtils.font(context, 17),
                     fontWeight: FontWeight.bold,
@@ -1183,6 +1189,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if ((user?.phoneNumber.trim().isNotEmpty ?? false) &&
+                    user!.phoneNumber.trim() != companyName) ...[
+                  SizedBox(height: ResponsiveUtils.spacing(context, 2)),
+                  Text(
+                    user.phoneNumber,
+                    style: TextStyle(
+                      fontSize: ResponsiveUtils.font(context, 12),
+                      color: _isDark ? AppTheme.darkGray : Colors.grey[600],
+                    ),
+                  ),
+                ],
                 SizedBox(height: ResponsiveUtils.spacing(context, 4)),
                 _buildVerifiedBadge(),
               ],

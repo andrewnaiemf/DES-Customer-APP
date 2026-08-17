@@ -32,7 +32,33 @@ class BrancheModel {
     required this.updatedAt,
   });
 
-  factory BrancheModel.fromJson(Map<String, dynamic> json) => _$BrancheModelFromJson(json);
+  factory BrancheModel.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic value) {
+      if (value is DateTime) return value;
+      return DateTime.tryParse(value?.toString() ?? '') ?? DateTime.now();
+    }
+
+    int parseInt(dynamic value) {
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? 0;
+    }
+
+    return BrancheModel(
+      id: parseInt(json['id']),
+      locale: json['locale']?.toString() ?? 'ar',
+      name: (json['name'] ?? json['organization'] ?? '').toString(),
+      organization:
+          (json['organization'] ?? json['trade_name'] ?? json['name'] ?? '')
+              .toString(),
+      email: json['email']?.toString(),
+      phoneNumber: (json['phone_number'] ?? '').toString(),
+      taxNumber: (json['tax_number'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      rememberToken: json['remember_token'],
+      createdAt: parseDate(json['created_at']),
+      updatedAt: parseDate(json['updated_at']),
+    );
+  }
 
   Map<String, dynamic> toJson() => _$BrancheModelToJson(this);
 }

@@ -13,7 +13,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
 // 🎁 Offers Slider Section (Home Page)
-// 3 كروت ظاهرة + صورة العرض إن وُجدت + تصميم مضغوط
+// صورة العرض كخلفية للكرت مع التفاصيل فوقها
 // ════════════════════════════════════════════════════════════════════════════
 class OffersSliderSection extends StatelessWidget {
   const OffersSliderSection({super.key});
@@ -69,16 +69,12 @@ class OffersSliderSection extends StatelessWidget {
           );
         }
 
-        // 3 كروت ظاهرة — ارتفاع مضغوط بدون فراغ أبيض زائد
+        // كرت عريض بصورة العرض كخلفية والتفاصيل فوقها
         final screenW = MediaQuery.of(context).size.width;
         const horizontalPadding = 16.0;
-        const gap = 10.0;
-        final cardWidth =
-            (screenW - (horizontalPadding * 2) - (gap * 2)) / 3;
-        // صورة + عنوان + عدد المنتجات + سعر (بدون Spacer)
-        final imageHeight = cardWidth * 0.75;
-        const contentHeight = 78.0; // عنوان + عدد المنتجات + سعر
-        final cardHeight = imageHeight + contentHeight;
+        const gap = 12.0;
+        final cardWidth = (screenW - horizontalPadding * 2) * 0.82;
+        final cardHeight = cardWidth * 0.62;
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
@@ -103,7 +99,7 @@ class OffersSliderSection extends StatelessWidget {
                       imageUrl: resolveOfferImage(offer),
                       isDark: isDark,
                       width: cardWidth,
-                      imageHeight: imageHeight,
+                      height: cardHeight,
                       onTap: () {
                         HapticFeedback.lightImpact();
                         MyNavigator.navigateTo(
@@ -208,7 +204,7 @@ class _OfferSlideCard extends StatelessWidget {
   final String? imageUrl;
   final bool isDark;
   final double width;
-  final double imageHeight;
+  final double height;
   final VoidCallback onTap;
 
   const _OfferSlideCard({
@@ -216,11 +212,10 @@ class _OfferSlideCard extends StatelessWidget {
     required this.imageUrl,
     required this.isDark,
     required this.width,
-    required this.imageHeight,
+    required this.height,
     required this.onTap,
   });
 
-  static const Color _purple = Color(0xFF6842E2);
   static const Color _green = Color(0xFF28E6C5);
 
   bool get _isExpired => offer.isExpired == true;
@@ -250,127 +245,97 @@ class _OfferSlideCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: width,
+        height: height,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF15172A) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : const Color(0xFFE8EAF0),
-          ),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.07),
-              blurRadius: 14,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.16),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            // ── صورة مضغوطة ──
-            SizedBox(
-              height: imageHeight,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  hasImage
-                      ? CachedNetworkImage(
-                          imageUrl: imageUrl!,
-                          fit: BoxFit.cover,
-                          placeholder: (_, __) => const _CardGradientBg(),
-                          errorWidget: (_, __, ___) =>
-                              const _GradientPlaceholder(),
-                        )
-                      : const _GradientPlaceholder(),
-                  // تدرّج خفيف أسفل الصورة لدمج أفضل مع النص
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 28,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.18),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _statusColor,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        _statusLabel,
-                        style: const TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          height: 1.1,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+            hasImage
+                ? CachedNetworkImage(
+                    imageUrl: imageUrl!,
+                    fit: BoxFit.cover,
+                    placeholder: (_, __) => const _CardGradientBg(),
+                    errorWidget: (_, __, ___) => const _GradientPlaceholder(),
+                  )
+                : const _GradientPlaceholder(),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x33000000),
+                    Color(0x00000000),
+                    Color(0xCC0B0718),
+                  ],
+                  stops: [0, 0.38, 1],
+                ),
               ),
             ),
-
-            // ── محتوى مضغوط (بدون Spacer / بدون فراغ أبيض) ──
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      offer.title ?? '',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.1,
-                        fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : const Color(0xFF1D1D25),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '$_productsCount ${'products'.tr()}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10,
-                        height: 1.1,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white60 : Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    _buildPrice(context),
-                  ],
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _statusColor.withValues(alpha: 0.92),
+                  borderRadius: BorderRadius.circular(20),
                 ),
+                child: Text(
+                  _statusLabel,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 14,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    offer.title ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.2,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$_productsCount ${'products'.tr()}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.86),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildPrice(context),
+                ],
               ),
             ),
           ],
@@ -391,18 +356,17 @@ class _OfferSlideCard extends StatelessWidget {
       } catch (_) {}
       return Row(
         children: [
-          Icon(Icons.event_rounded,
-              size: 11, color: isDark ? Colors.white54 : Colors.black45),
-          const SizedBox(width: 3),
+          const Icon(Icons.event_rounded, size: 13, color: Colors.white70),
+          const SizedBox(width: 4),
           Expanded(
             child: Text(
               dateText,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
+              style: const TextStyle(
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white60 : Colors.black54,
+                color: Colors.white70,
               ),
             ),
           ),
@@ -411,10 +375,11 @@ class _OfferSlideCard extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
-        color: _purple.withValues(alpha: isDark ? 0.22 : 0.08),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -425,15 +390,15 @@ class _OfferSlideCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 12.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: _purple,
+                color: Colors.white,
                 height: 1.05,
               ),
             ),
           ),
-          const SizedBox(width: 3),
-          context.getCurrencyWidget(height: 11, color: _purple),
+          const SizedBox(width: 4),
+          context.getCurrencyWidget(height: 12, color: Colors.white),
         ],
       ),
     );
@@ -492,8 +457,8 @@ class _OffersShimmer extends StatelessWidget {
         : Colors.grey.withValues(alpha: 0.15);
 
     final screenW = MediaQuery.of(context).size.width;
-    final cardWidth = (screenW - 32 - 20) / 3;
-    final cardHeight = cardWidth * 0.75 + 78;
+    final cardWidth = (screenW - 32) * 0.82;
+    final cardHeight = cardWidth * 0.62;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

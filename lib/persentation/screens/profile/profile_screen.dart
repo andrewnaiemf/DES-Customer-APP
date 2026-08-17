@@ -267,8 +267,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              ProfileCubit.get(context).userModel?.name ??
-                                  'User Name',
+                              ProfileCubit.get(context).userModel?.displayName.isNotEmpty == true
+                                  ? ProfileCubit.get(context).userModel!.displayName
+                                  : (ProfileCubit.get(context).userModel?.phoneNumber ?? ''),
                               style: TextStyle(
                                 fontSize: ResponsiveUtils.font(context, 18),
                                 fontWeight: FontWeight.w700,
@@ -308,7 +309,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildAvatar() {
-    final userName = ProfileCubit.get(context).userModel?.name ?? 'U';
+    final userName = ProfileCubit.get(context).userModel?.displayName.isNotEmpty == true
+        ? ProfileCubit.get(context).userModel!.displayName
+        : (ProfileCubit.get(context).userModel?.phoneNumber ?? 'U');
 
     return Container(
       width: ResponsiveUtils.size(context, 50),

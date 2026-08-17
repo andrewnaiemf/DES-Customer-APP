@@ -402,6 +402,7 @@ Future<void> _clearCustomerSession() async {
   await CacheHelper.removeKey(key: 'access_token');
   await CacheHelper.setBool(key: 'is_logged_in', value: false);
   await CacheHelper.removeKey(key: 'last_app_activity_at');
+  await CacheHelper.removeKey(key: 'cached_user_json');
   await CacheHelper.setBool(key: 'can_use_biometric', value: false);
   try {
     const storage = FlutterSecureStorage();

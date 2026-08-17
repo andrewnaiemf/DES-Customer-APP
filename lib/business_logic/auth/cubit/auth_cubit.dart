@@ -114,6 +114,7 @@ class AuthCubit extends Cubit<AuthState> {
 
     // ممكن هنا تضيف لو عندك حاجة تحدد إذا كان المستخدم مسجل دخول:
     await CacheHelper.setBool(key: "is_logged_in", value: false);
+    await CacheHelper.removeKey(key: 'cached_user_json');
 
     // إعادة تعيين حالة الـ Splash لعرضه في المرة القادمة
     await SplashScreen.resetSplashState();

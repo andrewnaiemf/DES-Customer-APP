@@ -187,7 +187,9 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen>
             _buildAvatar(user),
             SizedBox(height: ResponsiveUtils.spacing(context, 16)),
             Text(
-              user?.name ?? 'User Name',
+              user?.displayName.isNotEmpty == true
+                  ? user!.displayName
+                  : (user?.phoneNumber ?? ''),
               style: TextStyle(
                 fontSize: ResponsiveUtils.font(context, 22),
                 fontWeight: FontWeight.bold,
@@ -196,7 +198,9 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen>
             ),
             SizedBox(height: ResponsiveUtils.spacing(context, 6)),
             Text(
-              user?.organization ?? 'Organization',
+              user?.organization.trim().isNotEmpty == true
+                  ? user!.organization
+                  : (user?.phoneNumber ?? ''),
               style: TextStyle(
                 fontSize: ResponsiveUtils.font(context, 14),
                 color: AppTheme.getTextSecondary(_isDark),
@@ -210,7 +214,11 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen>
   }
 
   Widget _buildAvatar(UserModel? user) {
-    final initials = _getInitials(user?.name ?? 'U');
+    final initials = _getInitials(
+      user?.displayName.isNotEmpty == true
+          ? user!.displayName
+          : (user?.phoneNumber ?? 'U'),
+    );
 
     return Container(
       width: ResponsiveUtils.size(context, 90),

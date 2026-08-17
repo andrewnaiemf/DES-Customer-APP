@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:app/data/constants/api_constants.dart';
+import 'package:app/helpers/cache_helper.dart';
 import 'package:app/models/user/user_model.dart';
 import 'package:app/network/dio_helper.dart';
 import 'package:dio/dio.dart';
@@ -22,20 +24,65 @@ class ProfileFetchResult {
 }
 
 class ProfileServices {
+  static const cachedUserKey = 'cached_user_json';
+
+  static UserModel? parseUser(dynamic raw) {
+    try {
+      if (raw is! Map) return null;
+      return UserModel.fromJson(Map<String, dynamic>.from(raw));
+    } catch (e) {
+      log('parseUser failed: $e');
+      return null;
+    }
+  }
+
+  static Future<void> cacheUser(UserModel user) async {
+    try {
+      await CacheHelper.setString(
+        key: cachedUserKey,
+        value: jsonEncode(user.toJson()),
+      );
+    } catch (e) {
+      log('cacheUser failed: $e');
+    }
+  }
+
+  static UserModel? loadCachedUser() {
+    try {
+      final raw = CacheHelper.getString(key: cachedUserKey);
+      if (raw == null || raw.isEmpty) return null;
+      final decoded = jsonDecode(raw);
+      return parseUser(decoded);
+    } catch (e) {
+      log('loadCachedUser failed: $e');
+      return null;
+    }
+  }
+
+  static Future<void> clearCachedUser() async {
+    try {
+      await CacheHelper.removeKey(key: cachedUserKey);
+    } catch (_) {}
+  }
+
   static Future<UserModel?> getProfile() async {
     try {
       var result = await DioHelper.get(path: EndPoints.profile);
 
       if (result.statusCode == 200) {
         log('Get Profile Success');
-        return UserModel.fromJson(result.data['data']['user']);
+        final user = parseUser(result.data['data']?['user']);
+        if (user != null) {
+          await cacheUser(user);
+        }
+        return user;
       } else {
         log('Unable To Get Profile');
       }
     } catch (e) {
       log('$e');
     }
-    return null;
+    return loadCachedUser();
   }
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -49,9 +96,14 @@ class ProfileServices {
 
       if (result.statusCode == 200) {
         log('Get Profile Success');
+        final user = parseUser(result.data['data']?['user']);
+        if (user != null) {
+          await cacheUser(user);
+          return ProfileFetchResult(user, ProfileFetchOutcome.success);
+        }
         return ProfileFetchResult(
-          UserModel.fromJson(result.data['data']['user']),
-          ProfileFetchOutcome.success,
+          loadCachedUser(),
+          ProfileFetchOutcome.transientError,
         );
       } else if (result.statusCode == 401 || result.statusCode == 403) {
         // التوكن مرفوض فعلاً من السيرفر -> الجلسة انتهت
@@ -60,12 +112,18 @@ class ProfileServices {
       } else {
         // 500 / 4xx أخرى -> نعتبرها مؤقتة ومانطردش المستخدم
         log('Unable To Get Profile (status: ${result.statusCode}) -> transient');
-        return const ProfileFetchResult(null, ProfileFetchOutcome.transientError);
+        return ProfileFetchResult(
+          loadCachedUser(),
+          ProfileFetchOutcome.transientError,
+        );
       }
     } catch (e) {
       // timeout / مفيش نت / DioException -> مؤقت
       log('getProfileWithStatus error -> transient: $e');
-      return const ProfileFetchResult(null, ProfileFetchOutcome.transientError);
+      return ProfileFetchResult(
+        loadCachedUser(),
+        ProfileFetchOutcome.transientError,
+      );
     }
   }
 

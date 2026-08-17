@@ -15,8 +15,8 @@ part 'profile_state.dart';
 
 class ProfileCubit extends Cubit<ProfileState> {
   ProfileCubit({UserModel? initialUserModel}) : super(ProfileInitial()) {
-    if (initialUserModel != null) {
-      userModel = initialUserModel;
+    userModel = initialUserModel ?? ProfileServices.loadCachedUser();
+    if (userModel != null) {
       _lastFetchTime = DateTime.now();
       // Wait a microtask to emit success so listeners can catch it
       Future.microtask(() => emit(GetProfileSuccess()));
@@ -35,6 +35,13 @@ class ProfileCubit extends Cubit<ProfileState> {
   DateTime? _lastFetchTime; // ✅ Cache timer
   static const Duration _cacheValidDuration = Duration(minutes: 5);
 
+  void setUser(UserModel user) {
+    userModel = user;
+    _lastFetchTime = DateTime.now();
+    ProfileServices.cacheUser(user);
+    emit(GetProfileSuccess());
+  }
+
   Future<void> getProfile({bool forceRefresh = false}) async {
     // ✅ تجنب إعادة تحميل البيانات إذا الكاش صالح
     if (!forceRefresh && userModel != null && _lastFetchTime != null &&
@@ -44,8 +51,13 @@ class ProfileCubit extends Cubit<ProfileState> {
     isLoadingProfile = true;
     emit(GetProfileLoading());
     try {
-      userModel = await ProfileServices.getProfile();
-      _lastFetchTime = DateTime.now();
+      final fetched = await ProfileServices.getProfile();
+      if (fetched != null) {
+        userModel = fetched;
+        _lastFetchTime = DateTime.now();
+      } else if (userModel == null) {
+        userModel = ProfileServices.loadCachedUser();
+      }
 
       isLoadingProfile = false;
       emit(GetProfileSuccess());

@@ -36,6 +36,7 @@ class EndPoints {
   static const registerDocuments = '/api/user/register/documents';
   static const registerSendOtp = '/api/user/register/otp/send';
   static const registerVerifyOtp = '/api/user/register/otp/verify';
+  static const registerAgreementPreview = '/api/user/register/agreement-preview';
   static const checkPhone = '/api/user/check-phone';
   static const me = '/api/user/me';
   static const forgetPassword = '/api/user/forget-password';

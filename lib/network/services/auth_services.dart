@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'dart:developer';
 
+import 'package:app/business_logic/profile/cubit/profile_cubit.dart';
 import 'package:app/data/constants/api_constants.dart';
 import 'package:app/helpers/cache_helper.dart';
 import 'package:app/functions/functions.dart';
 import 'package:app/functions/my_navigation.dart';
 import 'package:app/models/user/CheckPhoneModel.dart';
+import 'package:app/models/user/user_model.dart';
 import 'package:app/network/dio_helper.dart';
+import 'package:app/network/services/profile_service.dart';
 import 'package:app/persentation/screens/layout/layout_screen.dart';
 import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -38,6 +41,13 @@ class AuthServices {
     final success = data['success'];
     final codeOk = statusCode != null && statusCode >= 200 && statusCode < 300;
     return codeOk && (status == true || success == true || status == 1);
+  }
+
+  String _apiMessage(Map<String, dynamic> data, String fallback) {
+    final msg = data['msg'] ?? data['message'];
+    if (msg is List) return msg.map((e) => e.toString()).join(', ');
+    if (msg != null && msg.toString().trim().isNotEmpty) return msg.toString();
+    return fallback;
   }
 
   Future<MultipartFile> _toMultipart(PlatformFileLike file) async {
@@ -106,6 +116,7 @@ class AuthServices {
     required String companyName,
     String? tradeName,
     required String managerName,
+    required String commercialRegistrationNumber,
     required String phone,
     required String password,
     required String passwordConfirmation,
@@ -113,6 +124,14 @@ class AuthServices {
     String? taxNumber,
     required String otp,
     String? email,
+    required String buildingNumber,
+    required String street,
+    required String district,
+    required String city,
+    required String postalCode,
+    String? additionalNumber,
+    required String signerName,
+    required String signerTitle,
   }) async {
     try {
       DioHelper.init();
@@ -123,6 +142,7 @@ class AuthServices {
           if (tradeName != null && tradeName.trim().isNotEmpty)
             'trade_name': tradeName.trim(),
           'manager_name': managerName,
+          'commercial_registration_number': commercialRegistrationNumber,
           'phone_number': phone,
           'password': password,
           'password_confirmation': passwordConfirmation,
@@ -131,6 +151,15 @@ class AuthServices {
           if (taxNumber != null && taxNumber.trim().isNotEmpty)
             'tax_number': taxNumber.trim(),
           if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+          'building_number': buildingNumber,
+          'street': street,
+          'district': district,
+          'city': city,
+          'postal_code': postalCode,
+          if (additionalNumber != null && additionalNumber.trim().isNotEmpty)
+            'additional_number': additionalNumber.trim(),
+          'signer_name': signerName,
+          'signer_title': signerTitle,
           'locale': CacheHelper.getString(key: 'lang') ?? 'ar',
         },
       );
@@ -154,6 +183,8 @@ class AuthServices {
     required PlatformFileLike commercialRegistration,
     PlatformFileLike? taxDocument,
     required PlatformFileLike nationalAddress,
+    required PlatformFileLike signature,
+    required PlatformFileLike stamp,
   }) async {
     try {
       DioHelper.init();
@@ -163,6 +194,8 @@ class AuthServices {
         'is_vat_registered': isVatRegistered ? '1' : '0',
         'commercial_registration': await _toMultipart(commercialRegistration),
         'national_address': await _toMultipart(nationalAddress),
+        'signature': await _toMultipart(signature),
+        'stamp': await _toMultipart(stamp),
         if (taxDocument != null) 'tax_document': await _toMultipart(taxDocument),
       });
 
@@ -179,6 +212,37 @@ class AuthServices {
     } catch (e) {
       log('uploadRegisterDocuments error: $e');
       return {'status': false, 'msg': e.toString()};
+    }
+  }
+
+  Future<List<int>?> previewAgreementPdf({
+    required Map<String, String> fields,
+    required PlatformFileLike signature,
+    required PlatformFileLike stamp,
+  }) async {
+    try {
+      DioHelper.init();
+      final formData = FormData.fromMap({
+        ...fields,
+        'signature': await _toMultipart(signature),
+        'stamp': await _toMultipart(stamp),
+      });
+      final response = await DioHelper.post(
+        path: EndPoints.registerAgreementPreview,
+        data: formData,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final raw = response.data;
+      if (response.statusCode != null &&
+          response.statusCode! >= 200 &&
+          response.statusCode! < 300) {
+        if (raw is Uint8List) return raw;
+        if (raw is List<int>) return List<int>.from(raw);
+      }
+      return null;
+    } catch (e) {
+      log('previewAgreementPdf error: $e');
+      return null;
     }
   }
 
@@ -255,7 +319,7 @@ class AuthServices {
       if (!_isSuccess(data, response.statusCode)) {
         return {
           'status': false,
-          'msg': data['msg'] ?? data['message'] ?? 'Failed to send OTP',
+          'msg': _apiMessage(data, 'Failed to send OTP'),
           'code': response.statusCode,
         };
       }
@@ -299,15 +363,25 @@ class AuthServices {
       if (response.statusCode != null &&
           response.statusCode! >= 200 &&
           response.statusCode! < 300) {
-        return _persistSessionAndNavigate(
+        final body = _asMap(response.data);
+        if (body['status'] == true || body['success'] == true) {
+          return _persistSessionAndNavigate(
+            context: context,
+            responseData: body,
+          );
+        }
+        showMessage(
           context: context,
-          responseData: response.data,
+          message: _apiMessage(body, 'OTP invalid'),
+          color: Colors.red,
         );
+        return false;
       }
 
+      final body = _asMap(response.data);
       showMessage(
         context: context,
-        message: response.data['msg']?.toString() ?? 'OTP invalid',
+        message: _apiMessage(body, 'OTP invalid'),
         color: Colors.red,
       );
       return false;
@@ -327,9 +401,19 @@ class AuthServices {
         ? Map<String, dynamic>.from(data['data'] as Map)
         : <String, dynamic>{};
 
+    final token = '${payload['token'] ?? ''}';
+    if (token.isEmpty) {
+      showMessage(
+        context: context,
+        message: _apiMessage(data, 'OTP invalid'),
+        color: Colors.red,
+      );
+      return false;
+    }
+
     await CacheHelper.setString(
       key: 'access_token',
-      value: '${payload['token'] ?? ''}',
+      value: token,
     );
     await CacheHelper.setBool(key: 'is_logged_in', value: true);
     await CacheHelper.setBool(key: 'biometric_app_lock_enabled', value: true);
@@ -339,6 +423,19 @@ class AuthServices {
     );
 
     DioHelper.init();
+    try {
+      final user = ProfileServices.parseUser(payload['user']);
+      if (user != null) {
+        ProfileCubit.get(context).setUser(user);
+      }
+    } catch (e) {
+      log('hydrate profile from login: $e');
+    }
+    try {
+      await ProfileCubit.get(context).getProfile(forceRefresh: true);
+    } catch (e) {
+      log('getProfile after login: $e');
+    }
     // ignore: use_build_context_synchronously
     MyNavigator.navigateOff(context, const LayoutScreen());
     // ignore: use_build_context_synchronously

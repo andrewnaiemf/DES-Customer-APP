@@ -4,6 +4,7 @@ import 'package:app/data/constants/assets.dart';
 import 'package:app/functions/my_navigation.dart';
 import 'package:app/models/user/user_model.dart';
 import 'package:app/persentation/screens/layout/layout_screen.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
@@ -83,12 +84,21 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _logoOpacity;
   late final Animation<double> _ringProgress;
   late final Animation<double> _titleOpacity;
-  late final Animation<double> _titleSlide;
   late final Animation<double> _taglineOpacity;
   late final Animation<double> _barProgress;
   late final Animation<double> _bgReveal;
+  late final Animation<double> _bubblesOpacity;
 
   bool _navigated = false;
+
+  static const _orbitItems = <_OrbitItem>[
+    _OrbitItem(Icons.verified_user_rounded, 'splash_feat_warranty', AppBrandColors.lightGreen),
+    _OrbitItem(Icons.inventory_2_rounded, 'splash_feat_products', AppBrandColors.purpleLight),
+    _OrbitItem(Icons.assignment_rounded, 'splash_feat_orders', Color(0xFF60A5FA)),
+    _OrbitItem(Icons.workspace_premium_rounded, 'splash_feat_loyalty', Color(0xFFFBBF24)),
+    _OrbitItem(Icons.shield_moon_rounded, 'splash_feat_ppf', Color(0xFF34D399)),
+    _OrbitItem(Icons.headset_mic_rounded, 'splash_feat_support', Color(0xFFF472B6)),
+  ];
 
   @override
   void initState() {
@@ -97,7 +107,7 @@ class _SplashScreenState extends State<SplashScreen>
 
     _introController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 3000),
+      duration: const Duration(milliseconds: 3400),
     );
 
     _ambientController = AnimationController(
@@ -127,21 +137,19 @@ class _SplashScreenState extends State<SplashScreen>
       curve: const Interval(0.15, 0.70, curve: Curves.easeInOutCubic),
     );
 
+    _taglineOpacity = CurvedAnimation(
+      parent: _introController,
+      curve: const Interval(0.58, 0.86, curve: Curves.easeOut),
+    );
+
+    _bubblesOpacity = CurvedAnimation(
+      parent: _introController,
+      curve: const Interval(0.32, 0.72, curve: Curves.easeOut),
+    );
+
     _titleOpacity = CurvedAnimation(
       parent: _introController,
       curve: const Interval(0.45, 0.75, curve: Curves.easeOut),
-    );
-
-    _titleSlide = Tween<double>(begin: 24, end: 0).animate(
-      CurvedAnimation(
-        parent: _introController,
-        curve: const Interval(0.45, 0.80, curve: Curves.easeOutCubic),
-      ),
-    );
-
-    _taglineOpacity = CurvedAnimation(
-      parent: _introController,
-      curve: const Interval(0.60, 0.88, curve: Curves.easeOut),
     );
 
     _barProgress = CurvedAnimation(
@@ -197,8 +205,10 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final logoBox = math.min(size.width * 0.30, 150.0);
-    final ringBox = logoBox * 1.7;
+    final shortest = math.min(size.width, size.height);
+    final logoBox = math.min(shortest * 0.22, 112.0);
+    final ringBox = logoBox * 1.62;
+    final orbitBox = math.min(shortest * 0.86, 360.0);
 
     return Scaffold(
       backgroundColor: AppBrandColors.background,
@@ -210,10 +220,7 @@ class _SplashScreenState extends State<SplashScreen>
             return Stack(
               alignment: Alignment.center,
               children: [
-                // 🌌 خلفية متدرّجة متحركة
                 _buildBackground(size),
-
-                // ✨ جزيئات دوّارة خفيفة (بدون blur)
                 Opacity(
                   opacity: _logoOpacity.value,
                   child: CustomPaint(
@@ -223,45 +230,16 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                 ),
-
-                // المحتوى الرئيسي
                 Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Spacer(flex: 5),
-
-                    // 🔵 اللوجو + الحلقات
-                    _buildLogo(logoBox, ringBox),
-
-                    SizedBox(height: size.height * 0.045),
-
-                    // ✦ اسم التطبيق
-                    _buildTitle(size),
-
-                    const SizedBox(height: 10),
-
-                    // العبارة التعريفية
+                    const Spacer(flex: 4),
+                    _buildLogoOrbit(logoBox, ringBox, orbitBox),
+                    SizedBox(height: size.height * 0.028),
                     _buildTagline(),
-
-                    const Spacer(flex: 5),
-
-                    // ▂ شريط التحميل
+                    const Spacer(flex: 4),
                     _buildProgressBar(size),
-
-                    const SizedBox(height: 18),
-
-                    Opacity(
-                      opacity: _taglineOpacity.value * 0.6,
-                      child: const Text(
-                        'Diamond Engine Shields',
-                        style: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 11,
-                          letterSpacing: 3,
-                        ),
-                      ),
-                    ),
-
+                    const SizedBox(height: 28),
                     const Spacer(flex: 1),
                   ],
                 ),
@@ -309,17 +287,28 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  // 🔵 اللوجو والحلقات
-  Widget _buildLogo(double logoBox, double ringBox) {
+  // 🔵 اللوجو في الوسط + بابلز الميزات حوله
+  Widget _buildLogoOrbit(double logoBox, double ringBox, double orbitBox) {
     final pulse = 1 + math.sin(_ambientController.value * 2 * math.pi) * 0.04;
+    final orbitSpin = _ambientController.value * 2 * math.pi * 0.22;
+    final bubbleSize = math.min(orbitBox * 0.168, 62.0);
+    final orbitRadius = (orbitBox / 2) - (bubbleSize * 0.62);
 
     return SizedBox(
-      width: ringBox,
-      height: ringBox,
+      width: orbitBox,
+      height: orbitBox,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // حلقة خارجية تُرسم تدريجياً + تدور
+          for (int i = 0; i < _orbitItems.length; i++)
+            _buildOrbitBubble(
+              item: _orbitItems[i],
+              index: i,
+              total: _orbitItems.length,
+              radius: orbitRadius,
+              spin: orbitSpin,
+              size: bubbleSize,
+            ),
           Transform.rotate(
             angle: _ambientController.value * 2 * math.pi,
             child: CustomPaint(
@@ -327,8 +316,6 @@ class _SplashScreenState extends State<SplashScreen>
               painter: _RingPainter(progress: _ringProgress.value),
             ),
           ),
-
-          // هالة توهّج (BoxShadow رخيص بدل الـ blur)
           Transform.scale(
             scale: _logoScale.value * pulse,
             child: Opacity(
@@ -352,10 +339,13 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ],
                 ),
-                padding: EdgeInsets.all(logoBox * 0.26),
+                padding: EdgeInsets.all(logoBox * 0.24),
                 child: SvgPicture.asset(
                   Assets.logoo,
-                  color: Colors.white,
+                  colorFilter: const ColorFilter.mode(
+                    Colors.white,
+                    BlendMode.srcIn,
+                  ),
                 ),
               ),
             ),
@@ -365,23 +355,66 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  // ✦ العنوان
-  Widget _buildTitle(Size size) {
-    return Opacity(
-      opacity: _titleOpacity.value,
-      child: Transform.translate(
-        offset: Offset(0, _titleSlide.value),
-        child: ShaderMask(
-          shaderCallback: (bounds) =>
-              AppBrandColors.brandGradient.createShader(bounds),
-          child: Text(
-            'DES',
-            style: TextStyle(
-              fontSize: math.min(size.width * 0.16, 64),
-              fontWeight: FontWeight.w900,
-              color: Colors.white,
-              letterSpacing: 6,
-              height: 1,
+  Widget _buildOrbitBubble({
+    required _OrbitItem item,
+    required int index,
+    required int total,
+    required double radius,
+    required double spin,
+    required double size,
+  }) {
+    final angle = (index / total) * 2 * math.pi - math.pi / 2 + spin;
+    final dx = math.cos(angle) * radius;
+    final dy = math.sin(angle) * radius;
+    final appear = Curves.easeOut.transform(
+      ((_bubblesOpacity.value * total) - index * 0.12).clamp(0.0, 1.0),
+    );
+
+    return Transform.translate(
+      offset: Offset(dx, dy),
+      child: Opacity(
+        opacity: appear * _bubblesOpacity.value,
+        child: Transform.scale(
+          scale: 0.72 + (0.28 * appear),
+          child: SizedBox(
+            width: size + 8,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: size * 0.72,
+                  height: size * 0.72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF16162A).withOpacity(0.92),
+                    border: Border.all(
+                      color: item.color.withOpacity(0.55),
+                      width: 1.4,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: item.color.withOpacity(0.28),
+                        blurRadius: 12,
+                        spreadRadius: 0.5,
+                      ),
+                    ],
+                  ),
+                  child: Icon(item.icon, color: item.color, size: size * 0.34),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.labelKey.tr(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.82),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -446,6 +479,17 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🫧 عنصر بابل حول الشعار
+// ═══════════════════════════════════════════════════════════════════════════
+class _OrbitItem {
+  final IconData icon;
+  final String labelKey;
+  final Color color;
+
+  const _OrbitItem(this.icon, this.labelKey, this.color);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

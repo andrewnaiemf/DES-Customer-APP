@@ -65,7 +65,6 @@ class _LayoutScreenState extends State<LayoutScreen> with TickerProviderStateMix
 
   @override
   void initState() {
-    _loadProfile();
     super.initState();
     _mainController = AnimationController(
       vsync: this,
@@ -74,19 +73,17 @@ class _LayoutScreenState extends State<LayoutScreen> with TickerProviderStateMix
 
     _setSystemUIOverlay();
 
-    // 🔗 لو فيه رابط عميق منتظر (دخل التطبيق من Link)، ننفّذه دلوقتي
-    // بعد ما المستخدم بقى داخل الـ Layout (يعني مؤكَّد مسجّل دخول).
-    DeepLinkService.instance.consumePending(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final profile = ProfileCubit.get(context);
+      profile.getProfile(forceRefresh: profile.userModel == null);
+      DeepLinkService.instance.consumePending(context);
+    });
 
     // 🚀 Safety Timer: Force enter after 1.2s to prevent getting stuck
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) setState(() => _forceEnter = true);
     });
-  }
-
-  void _loadProfile() {
-    // Load in background
-    ProfileCubit.get(context).getProfile();
   }
 
   void _setSystemUIOverlay() {

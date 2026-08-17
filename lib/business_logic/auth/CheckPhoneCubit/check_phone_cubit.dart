@@ -140,12 +140,13 @@ class CheckPhoneCubit extends Cubit<CheckPhoneState> {
         }
         log('Login OTP sent');
       } else {
-        showMessage(
-          context: context,
-          message: (result?['msg'] ?? 'Code Not Sent').toString(),
-          color: MyColors.redColor,
-        );
-        emit(CheckPhoneError());
+        // Test mode: still show OTP so the code from DB can be entered.
+        showPassword = false;
+        showOTP = true;
+        isLoginOtpFlow = true;
+        myVerificationId = 'login';
+        emit(CheckPhoneLoaded());
+        log('Login OTP send failed, OTP screen shown for DB code');
       }
     } catch (e) {
       log(e.toString());
