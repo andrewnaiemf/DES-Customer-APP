@@ -1,7 +1,13 @@
 # DES Customer App — iOS DEV (TestFlight + IPA)
 # workflowId: ios-dev
 #
-# Creates App Store certs/profiles via App Store Connect API (ASC key + CERTIFICATE_PRIVATE_KEY).
+# Required Codemagic env group `ios_signing` (encrypted):
+#   APP_STORE_CONNECT_KEY_IDENTIFIER = 6SP3K86KWQ
+#   APP_STORE_CONNECT_ISSUER_ID      = db04de63-863e-404d-8c33-c599ec8d27f1
+#   APP_STORE_CONNECT_PRIVATE_KEY    = full AuthKey_6SP3K86KWQ.p8 contents
+#   CERTIFICATE_PRIVATE_KEY          = openssl genrsa 2048 (distribution cert key)
+#
+# Team integration name: des_asc_api (App Store Connect API key in Codemagic UI)
 
 workflows:
   ios-dev:
@@ -9,10 +15,15 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
 
+    integrations:
+      app_store_connect: des_asc_api
+
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
+      groups:
+        - ios_signing
       vars:
         BUNDLE_ID: com.DES.DESUserApp
         WIDGET_BUNDLE_ID: com.DES.DESUserApp.widget
@@ -71,17 +82,29 @@ workflows:
 
       - name: Fetch signing files for app + Live Activity widget
         script: |
-          set -e
+          set -euo pipefail
+          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Missing APP_STORE_CONNECT_KEY_IDENTIFIER}"
+          : "${APP_STORE_CONNECT_ISSUER_ID:?Missing APP_STORE_CONNECT_ISSUER_ID}"
+          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Missing APP_STORE_CONNECT_PRIVATE_KEY}"
+          : "${CERTIFICATE_PRIVATE_KEY:?Missing CERTIFICATE_PRIVATE_KEY}"
+
           echo "Using ASC key: $APP_STORE_CONNECT_KEY_IDENTIFIER"
-          # Widget entitlements include aps-environment — Push Notifications must be
-          # enabled on com.DES.DESUserApp.widget in Apple Developer (already done once).
-          # If profiles go INVALID after capability changes, delete them in ASC and rebuild.
+
+          ASC_ARGS=(
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER"
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID"
+            --private-key @env:APP_STORE_CONNECT_PRIVATE_KEY
+            --certificate-key @env:CERTIFICATE_PRIVATE_KEY
+          )
+
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            "${ASC_ARGS[@]}"
           app-store-connect fetch-signing-files "$WIDGET_BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            "${ASC_ARGS[@]}"
 
       - name: Add certificates to keychain
         script: keychain add-certificates
