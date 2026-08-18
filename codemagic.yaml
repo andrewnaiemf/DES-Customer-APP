@@ -1,13 +1,9 @@
 # DES Customer App — iOS DEV (TestFlight + IPA)
 # workflowId: ios-dev
 #
-# Required Codemagic env group `ios_signing` (encrypted):
-#   APP_STORE_CONNECT_KEY_IDENTIFIER = 6SP3K86KWQ
-#   APP_STORE_CONNECT_ISSUER_ID      = db04de63-863e-404d-8c33-c599ec8d27f1
-#   APP_STORE_CONNECT_PRIVATE_KEY    = full AuthKey_6SP3K86KWQ.p8 contents
-#   CERTIFICATE_PRIVATE_KEY          = openssl genrsa 2048 (distribution cert key)
-#
-# Team integration name: des_asc_api (App Store Connect API key in Codemagic UI)
+# Signing credentials are injected per-build (Codemagic API environment.variables):
+#   APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_ISSUER_ID,
+#   APP_STORE_CONNECT_PRIVATE_KEY, CERTIFICATE_PRIVATE_KEY
 
 workflows:
   ios-dev:
@@ -15,15 +11,10 @@ workflows:
     max_build_duration: 120
     instance_type: mac_mini_m2
 
-    integrations:
-      app_store_connect: des_asc_api
-
     environment:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - ios_signing
       vars:
         BUNDLE_ID: com.DES.DESUserApp
         WIDGET_BUNDLE_ID: com.DES.DESUserApp.widget
