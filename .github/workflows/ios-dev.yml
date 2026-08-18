@@ -84,8 +84,10 @@ jobs:
 
       - name: Build IPA
         run: |
-          BUILD_NUMBER=${{ github.run_number }}
-          flutter build ipa --release --build-number="$BUILD_NUMBER"
+          BUILD_NUMBER=$(date +%s)
+          flutter build ipa --release \
+            --build-name=1.4.7 \
+            --build-number="$BUILD_NUMBER"
 
       - name: Verify Widget Extension in IPA
         run: |

@@ -40,7 +40,7 @@ workflows:
           # never see the new IPA as an update. Always use a monotonic CFBundleVersion.
           IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-$(($(date +%s)))}"
           # Keep marketing version aligned with what is already on TestFlight.
-          IOS_BUILD_NAME="${IOS_BUILD_NAME:-1.3.9}"
+          IOS_BUILD_NAME="${IOS_BUILD_NAME:-1.4.7}"
           echo "IOS_BUILD_NUMBER=$IOS_BUILD_NUMBER"
           echo "IOS_BUILD_NAME=$IOS_BUILD_NAME"
           echo "IOS_BUILD_NUMBER=$IOS_BUILD_NUMBER" >> "$CM_ENV"
@@ -93,7 +93,7 @@ workflows:
         script: |
           set -e
           IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-$(($(date +%s)))}"
-          IOS_BUILD_NAME="${IOS_BUILD_NAME:-1.3.9}"
+          IOS_BUILD_NAME="${IOS_BUILD_NAME:-1.4.7}"
           flutter build ipa --release \
             --export-options-plist=/Users/builder/export_options.plist \
             --build-name="$IOS_BUILD_NAME" \

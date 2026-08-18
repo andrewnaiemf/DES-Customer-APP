@@ -43,6 +43,8 @@ void showMessage({
   bool showIcon = true,
   SnackBarBehavior behavior = SnackBarBehavior.floating,
 }) {
+  if (!context.mounted) return;
+
   // 🔊 Haptic feedback based on message type
   _triggerHapticFeedback(type);
 

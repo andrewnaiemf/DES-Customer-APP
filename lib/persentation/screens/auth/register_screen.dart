@@ -553,13 +553,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               label: 'reg_tax_number'.tr(),
               icon: Icons.receipt_long_rounded,
               keyboardType: TextInputType.number,
-              inputFormatters: const [_EnglishDigitsFormatter()],
+              inputFormatters: const [_EnglishDigitsFormatter(maxLength: 15)],
               validator: (v) {
                 if (!_vatRegistered) return null;
-                if (v == null || v.trim().isEmpty) {
+                final digits = (v ?? '').trim();
+                if (digits.isEmpty) {
                   return 'reg_field_required'.tr();
                 }
-                if (!RegExp(r'^[0-9]+$').hasMatch(v.trim())) {
+                if (!RegExp(r'^3[0-9]{13}3$').hasMatch(digits)) {
                   return 'reg_tax_invalid'.tr();
                 }
                 return null;
@@ -574,7 +575,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
             label: 'reg_building_number'.tr(),
             icon: Icons.home_work_outlined,
             keyboardType: TextInputType.number,
-            validator: _required,
+            inputFormatters: const [_EnglishDigitsFormatter(maxLength: 4)],
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) {
+                return 'reg_field_required'.tr();
+              }
+              if (!RegExp(r'^[0-9]{4}$').hasMatch(v.trim())) {
+                return 'reg_building_invalid'.tr();
+              }
+              return null;
+            },
           ),
           const SizedBox(height: 12),
           _field(
@@ -603,7 +613,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
             label: 'reg_postal_code'.tr(),
             icon: Icons.local_post_office_outlined,
             keyboardType: TextInputType.number,
-            validator: _required,
+            inputFormatters: const [_EnglishDigitsFormatter(maxLength: 5)],
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) {
+                return 'reg_field_required'.tr();
+              }
+              if (!RegExp(r'^[0-9]{5}$').hasMatch(v.trim())) {
+                return 'reg_postal_invalid'.tr();
+              }
+              return null;
+            },
           ),
           const SizedBox(height: 12),
           _field(
@@ -611,8 +630,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
             label: 'reg_additional_number_optional'.tr(),
             icon: Icons.tag_outlined,
             keyboardType: TextInputType.number,
+            inputFormatters: const [_EnglishDigitsFormatter(maxLength: 4)],
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return null;
+              if (!RegExp(r'^[0-9]{4}$').hasMatch(v.trim())) {
+                return 'reg_additional_invalid'.tr();
+              }
+              return null;
+            },
           ),
-          const SizedBox(height: 18),
           _sectionLabel('reg_section_attachments'.tr()),
           const SizedBox(height: 6),
           Text(
@@ -1906,7 +1932,9 @@ class _RegisterAgreementSheet extends StatelessWidget {
 }
 
 class _EnglishDigitsFormatter extends TextInputFormatter {
-  const _EnglishDigitsFormatter();
+  const _EnglishDigitsFormatter({this.maxLength});
+
+  final int? maxLength;
 
   static const _arabic = {
     '٠': '0',
@@ -1944,7 +1972,10 @@ class _EnglishDigitsFormatter extends TextInputFormatter {
         buffer.write(mapped);
       }
     }
-    final text = buffer.toString();
+    var text = buffer.toString();
+    if (maxLength != null && text.length > maxLength!) {
+      text = text.substring(0, maxLength!);
+    }
     return TextEditingValue(
       text: text,
       selection: TextSelection.collapsed(offset: text.length),

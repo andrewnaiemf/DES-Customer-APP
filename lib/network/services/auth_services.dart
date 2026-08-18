@@ -247,20 +247,19 @@ class AuthServices {
   }
 
   Future<CheckPhoneModel?> checkPhone(String phone) async {
+    DioHelper.init();
     final response = await DioHelper.post(
       path: EndPoints.checkPhone,
       data: {"phone_number": phone},
     );
-    var responseMap = jsonDecode(response.toString());
-    if (response.statusCode! >= 200 && response.statusCode! < 300) {
-      print(response.toString());
-      print("checkPhone statusCode 200");
+    final responseMap = _asMap(response.data);
+    if (response.statusCode != null &&
+        response.statusCode! >= 200 &&
+        response.statusCode! < 300) {
       return CheckPhoneModel.fromJson(responseMap);
-    } else {
-      print(response.toString());
-      print("Failed to checkPhone.");
-      return null;
     }
+    log('checkPhone failed: ${response.statusCode} $responseMap');
+    return null;
   }
 
   Future<bool?> login({
@@ -370,24 +369,30 @@ class AuthServices {
             responseData: body,
           );
         }
+        if (context.mounted) {
+          showMessage(
+            context: context,
+            message: _apiMessage(body, 'OTP invalid'),
+            color: Colors.red,
+          );
+        }
+        return false;
+      }
+
+      final body = _asMap(response.data);
+      if (context.mounted) {
         showMessage(
           context: context,
           message: _apiMessage(body, 'OTP invalid'),
           color: Colors.red,
         );
-        return false;
       }
-
-      final body = _asMap(response.data);
-      showMessage(
-        context: context,
-        message: _apiMessage(body, 'OTP invalid'),
-        color: Colors.red,
-      );
       return false;
     } catch (e) {
       log('loginWithOtp error: $e');
-      showMessage(context: context, message: e.toString(), color: Colors.red);
+      if (context.mounted) {
+        showMessage(context: context, message: e.toString(), color: Colors.red);
+      }
       return false;
     }
   }
@@ -403,11 +408,13 @@ class AuthServices {
 
     final token = '${payload['token'] ?? ''}';
     if (token.isEmpty) {
-      showMessage(
-        context: context,
-        message: _apiMessage(data, 'OTP invalid'),
-        color: Colors.red,
-      );
+      if (context.mounted) {
+        showMessage(
+          context: context,
+          message: _apiMessage(data, 'OTP invalid'),
+          color: Colors.red,
+        );
+      }
       return false;
     }
 
@@ -422,28 +429,34 @@ class AuthServices {
       value: DateTime.now().toUtc().toIso8601String(),
     );
 
+    ProfileCubit? profileCubit;
+    if (context.mounted) {
+      profileCubit = ProfileCubit.get(context);
+    }
+
     DioHelper.init();
     try {
       final user = ProfileServices.parseUser(payload['user']);
-      if (user != null) {
-        ProfileCubit.get(context).setUser(user);
+      if (user != null && profileCubit != null) {
+        profileCubit.setUser(user);
       }
     } catch (e) {
       log('hydrate profile from login: $e');
     }
     try {
-      await ProfileCubit.get(context).getProfile(forceRefresh: true);
+      await profileCubit?.getProfile(forceRefresh: true);
     } catch (e) {
       log('getProfile after login: $e');
     }
-    // ignore: use_build_context_synchronously
-    MyNavigator.navigateOff(context, const LayoutScreen());
-    // ignore: use_build_context_synchronously
+
+    if (!context.mounted) return true;
+
     showMessage(
       context: context,
       message: data['msg']?.toString() ?? 'Logged in successfully',
       color: Colors.green,
     );
+    MyNavigator.navigateOff(context, const LayoutScreen());
     return true;
   }
 }

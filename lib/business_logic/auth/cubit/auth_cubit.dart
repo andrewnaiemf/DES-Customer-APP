@@ -70,21 +70,22 @@ class AuthCubit extends Cubit<AuthState> {
         );
 
         DioHelper.init();
-        // ignore: use_build_context_synchronously
-        MyNavigator.navigateOff(context, const LayoutScreen());
-        // ignore: use_build_context_synchronously
-        showMessage(
-          context: context,
-          message: response.data["msg"],
-          color: Colors.green,
-        );
+        if (context.mounted) {
+          showMessage(
+            context: context,
+            message: response.data["msg"],
+            color: Colors.green,
+          );
+          MyNavigator.navigateOff(context, const LayoutScreen());
+        }
       } else {
-        // ignore: use_build_context_synchronously
-        showMessage(
-          context: context,
-          message: response.data["msg"].toString(),
-          color: MyColors.redColor,
-        );
+        if (context.mounted) {
+          showMessage(
+            context: context,
+            message: response.data["msg"].toString(),
+            color: MyColors.redColor,
+          );
+        }
       }
 
       isLoadingLogin = false;
@@ -92,11 +93,13 @@ class AuthCubit extends Cubit<AuthState> {
     } catch (e) {
       log("$e");
       isLoadingLogin = false;
-      showMessage(
-        context: context,
-        message: "Error when Login",
-        color: MyColors.redColor,
-      );
+      if (context.mounted) {
+        showMessage(
+          context: context,
+          message: "Error when Login",
+          color: MyColors.redColor,
+        );
+      }
       emit(LoginError());
     }
   }
