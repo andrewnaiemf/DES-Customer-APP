@@ -69,12 +69,15 @@ class OffersSliderSection extends StatelessWidget {
           );
         }
 
-        // كرت عريض بصورة العرض كخلفية والتفاصيل فوقها
+        // كرت أصغر: يظهر كرتين ونصف في الشاشة
         final screenW = MediaQuery.of(context).size.width;
         const horizontalPadding = 16.0;
-        const gap = 12.0;
-        final cardWidth = (screenW - horizontalPadding * 2) * 0.82;
-        final cardHeight = cardWidth * 0.62;
+        const gap = 10.0;
+        const visibleCards = 2.5;
+        final cardWidth =
+            (screenW - horizontalPadding - gap * (visibleCards.floor())) /
+                visibleCards;
+        final cardHeight = cardWidth * 0.72;
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
@@ -247,12 +250,12 @@ class _OfferSlideCard extends StatelessWidget {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.16),
-              blurRadius: 18,
-              offset: const Offset(0, 8),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
             ),
           ],
         ),
@@ -283,11 +286,11 @@ class _OfferSlideCard extends StatelessWidget {
               ),
             ),
             Positioned(
-              top: 12,
-              right: 12,
+              top: 10,
+              right: 10,
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: _statusColor.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(20),
@@ -295,7 +298,7 @@ class _OfferSlideCard extends StatelessWidget {
                 child: Text(
                   _statusLabel,
                   style: const TextStyle(
-                    fontSize: 10,
+                    fontSize: 9,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
                     height: 1.1,
@@ -304,9 +307,9 @@ class _OfferSlideCard extends StatelessWidget {
               ),
             ),
             Positioned(
-              left: 14,
-              right: 14,
-              bottom: 14,
+              left: 10,
+              right: 10,
+              bottom: 10,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -316,24 +319,24 @@ class _OfferSlideCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 13,
                       height: 1.2,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Text(
                     '$_productsCount ${'products'.tr()}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: Colors.white.withValues(alpha: 0.86),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   _buildPrice(context),
                 ],
               ),
@@ -390,7 +393,7 @@ class _OfferSlideCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
                 color: Colors.white,
                 height: 1.05,
@@ -398,7 +401,7 @@ class _OfferSlideCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          context.getCurrencyWidget(height: 12, color: Colors.white),
+          context.getCurrencyWidget(height: 10, color: Colors.white),
         ],
       ),
     );
@@ -457,8 +460,13 @@ class _OffersShimmer extends StatelessWidget {
         : Colors.grey.withValues(alpha: 0.15);
 
     final screenW = MediaQuery.of(context).size.width;
-    final cardWidth = (screenW - 32) * 0.82;
-    final cardHeight = cardWidth * 0.62;
+    const horizontalPadding = 16.0;
+    const gap = 10.0;
+    const visibleCards = 2.5;
+    final cardWidth =
+        (screenW - horizontalPadding - gap * (visibleCards.floor())) /
+            visibleCards;
+    final cardHeight = cardWidth * 0.72;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,7 +489,7 @@ class _OffersShimmer extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             physics: const NeverScrollableScrollPhysics(),
             itemCount: 3,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            separatorBuilder: (_, __) => const SizedBox(width: gap),
             itemBuilder: (_, __) => Container(
               width: cardWidth,
               decoration: BoxDecoration(

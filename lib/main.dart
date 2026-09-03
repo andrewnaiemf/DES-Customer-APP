@@ -642,52 +642,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                       );
                     }
 
-                    // التحقق من ضرورة عرض الـ Splash
+                    // التحقق من ضرورة عرض الـ Splash / الستوريز
                     final shouldShow = snapshot.data!;
 
                     // 🔗 لو التطبيق اتفتح من رابط عميق (Deep Link) منتظر، نتخطّى
-                    // شاشة الـ onboarding القصصية (التخطي) وندخل على طول للوجهة
-                    // (Layout لو مسجّل دخول / Login لو لأ)، وبعدها الرابط بيتنفّذ.
-                    if (DeepLinkService.instance.hasPending) {
+                    // شاشة الـ onboarding القصصية وندخل على طول للوجهة.
+                    if (DeepLinkService.instance.hasPending || !shouldShow) {
                       return InitialScreen(
                         userModel: widget.userModel,
                         isLoggedIn: widget.isLoggedIn,
                       );
                     }
 
-                    // 🌙 عرض Splash Screen الرمضاني دائماً (موسم رمضان)
-                    // 🔄 للعودة للـ Splash العادي: استبدل RamadanSplashScreen بـ SplashScreen
-                    // return RamadanSplashScreen(
-                    //   onFinish: () async {
-                    //     // تحديد الشاشة التالية بناءً على حالة المستخدم
-                    //     Widget nextScreen;
-                    //
-                    //     if (widget.userModel != null) {
-                    //       // المستخدم مسجل دخول - دائماً نذهب لـ LayoutScreen
-                    //       nextScreen = const LayoutScreen();
-                    //     } else {
-                    //       // المستخدم غير مسجل دخول - الذهاب مباشرة لشاشة تسجيل الدخول
-                    //       nextScreen = const LoginScreen();
-                    //     }
-                    //
-                    //     // الانتقال للشاشة التالية
-                    //     if (context.mounted) {
-                    //       Navigator.of(context).pushReplacement(
-                    //         MaterialPageRoute(builder: (_) => nextScreen),
-                    //       );
-                    //
-                    //       // 🔐 إذا كان قفل البصمة مطلوب، نفتحه فوق الشاشة الرئيسية
-                    //       if (_showBiometricLock && widget.userModel != null) {
-                    //         // تأخير بسيط للسماح بإكمال الانتقال الأول
-                    //         Future.delayed(const Duration(milliseconds: 300), () {
-                    //           _pushBiometricLockScreen();
-                    //         });
-                    //       }
-                    //     }
-                    //   },
-                    // );
-                    
-                    // ⚠️ للعودة للـ Splash العادي استخدم هذا:
+                    // شاشة الستوريز متعددة الصفحات (أول تشغيل فقط)
                     return SplashScreen(
                       userModel: widget.userModel,
                       isLoggedIn: widget.isLoggedIn,

@@ -67,7 +67,7 @@ class AccountAgreementPdf {
           pw.SizedBox(height: 6),
           pw.Center(
             child: pw.Text(
-              'اتفاقية فتح حساب',
+              data.title,
               style: pw.TextStyle(
                 font: bold,
                 fontSize: 18,

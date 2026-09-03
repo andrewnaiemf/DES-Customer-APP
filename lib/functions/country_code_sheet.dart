@@ -37,11 +37,11 @@ class AppBrandColors {
 // ═══════════════════════════════════════════════════════════════════════════
 // 🌍 Country Code Bottom Sheet
 // ═══════════════════════════════════════════════════════════════════════════
-void showCountryCodeBottomSheet(BuildContext context) {
+Future<void> showCountryCodeBottomSheet(BuildContext context) {
   // Haptic feedback for better UX
   HapticFeedback.lightImpact();
 
-  showModalBottomSheet(
+  return showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
@@ -110,12 +110,11 @@ class _CountryCodeBottomSheetContentState
     return key.tr();
   }
   
-  String _getCountryName(String name) {
+  String _getCountryName(CountryCode country) {
     if (widget.forceEnglish) {
-      // Return English name directly without translation
-      return name;
+      return country.name;
     }
-    return name.tr();
+    return country.localizedName(context.locale.languageCode);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -175,12 +174,12 @@ class _CountryCodeBottomSheetContentState
         _filteredCountries = List.from(countryCodesList);
       } else {
         _filteredCountries = countryCodesList.where((country) {
-          // Use English name directly if forceEnglish, otherwise translate
-          final name = widget.forceEnglish 
-              ? country.name.toLowerCase() 
-              : country.name.tr().toLowerCase();
+          final nameEn = country.name.toLowerCase();
+          final nameAr = country.nameAr.toLowerCase();
           final code = country.code.toLowerCase();
-          return name.contains(_searchQuery) || code.contains(_searchQuery);
+          return nameEn.contains(_searchQuery) ||
+              nameAr.contains(_searchQuery) ||
+              code.contains(_searchQuery);
         }).toList();
       }
     });
@@ -570,7 +569,7 @@ class _CountryCodeBottomSheetContentState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _getCountryName(country.name),
+                          _getCountryName(country),
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: isCurrentlySelected

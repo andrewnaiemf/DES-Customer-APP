@@ -3,10 +3,12 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:app/business_logic/auth/CheckPhoneCubit/check_phone_cubit.dart';
+import 'package:app/models/account_agreement_template.dart';
 import 'package:app/data/constants/account_agreement.dart';
 import 'package:app/functions/account_agreement_pdf.dart';
 import 'package:app/functions/country_code_sheet.dart' show showCountryCodeBottomSheet;
 import 'package:app/functions/download_bytes.dart';
+import 'package:app/models/country_code.dart';
 import 'package:app/network/services/auth_services.dart';
 import 'package:app/persentation/screens/auth/login_screen.dart' show LoginScreen;
 import 'package:app/persentation/screens/auth/widgets/register_signature_pad.dart';
@@ -46,10 +48,10 @@ class _RegColors {
       );
 }
 
-enum _RegStep { form, agreement, sign, otp }
+enum _RegStep { form, otp, agreement, sign }
 
 /// Professional multi-step customer registration:
-/// form → account agreement → signature/stamp → SMS OTP.
+/// form → SMS OTP → account agreement → signature/stamp → submit.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -90,10 +92,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   String _otpInput = '';
   List<int>? _signatureBytes;
   PlatformFile? _stampFile;
+  AccountAgreementTemplateModel? _agreementTemplate;
+  bool _loadingAgreement = false;
 
   PlatformFile? _commercialRegFile;
   PlatformFile? _taxFile;
   PlatformFile? _nationalAddressFile;
+  CountryCode _billingCountry = countryCodesList.firstWhere(
+    (c) => c.code == '+966',
+    orElse: () => countryCodesList.first,
+  );
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
 
@@ -199,7 +207,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_signerNameCtrl.text.trim().isEmpty) {
       _signerNameCtrl.text = _managerCtrl.text.trim();
     }
-    setState(() => _step = _RegStep.agreement);
+    await _sendOtp();
+  }
+
+  Future<void> _loadAgreementAfterOtp() async {
+    setState(() => _loadingAgreement = true);
+    final template = await AuthServices().getRegisterAgreement(
+      locale: context.locale.languageCode,
+    );
+    if (!mounted) return;
+    setState(() {
+      _agreementTemplate = template;
+      _loadingAgreement = false;
+      _step = _RegStep.agreement;
+    });
+    if (template == null) {
+      _toast('reg_agreement_load_failed'.tr());
+    }
+  }
+
+  AccountAgreementData _buildAgreementData() {
+    return AccountAgreementData.fromForm(
+      companyName: _companyCtrl.text,
+      crNumber: _crCtrl.text,
+      buildingNumber: _buildingCtrl.text,
+      street: _streetCtrl.text,
+      district: _districtCtrl.text,
+      city: _cityCtrl.text,
+      postalCode: _postalCtrl.text,
+      signerName: _signerNameCtrl.text.isEmpty
+          ? _managerCtrl.text
+          : _signerNameCtrl.text,
+      signerTitle: _signerTitleCtrl.text,
+      template: _agreementTemplate,
+    );
   }
 
   Future<void> _sendOtp() async {
@@ -240,13 +281,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _verifyOtp() async {
-    if (_verifyingOtp || _sendingOtp) return;
+    if (_verifyingOtp || _sendingOtp || _loadingAgreement) return;
     if (_otpInput.length < 6) {
       _toast('reg_otp_incomplete'.tr());
       return;
     }
+
+    setState(() => _verifyingOtp = true);
+    try {
+      final verify = await AuthServices().verifyRegisterOtp(
+        phone: _fullPhone,
+        otp: _otpInput,
+      );
+      if (!mounted) return;
+
+      final verified = verify != null && verify['status'] == true;
+      if (!verified) {
+        _toast((verify?['msg'] ?? 'reg_otp_wrong'.tr()).toString());
+        return;
+      }
+
+      HapticFeedback.mediumImpact();
+      await _loadAgreementAfterOtp();
+    } catch (e) {
+      if (!mounted) return;
+      _toast(e.toString());
+    } finally {
+      if (mounted) setState(() => _verifyingOtp = false);
+    }
+  }
+
+  Future<void> _submitRegistration() async {
+    if (_verifyingOtp || _sendingOtp) return;
     if (_commercialRegFile == null || _nationalAddressFile == null) {
       _toast('reg_attach_commercial_required'.tr());
+      return;
+    }
+    if (_stampFile == null || _signatureBytes == null) {
+      _toast('reg_stamp_required'.tr());
       return;
     }
 
@@ -259,19 +331,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final taxDoc = _taxFile == null ? null : _toFileLike(_taxFile!);
       final vat = _vatRegistered;
 
-      final verify = await AuthServices().verifyRegisterOtp(
-        phone: phone,
-        otp: otp,
-      );
-      if (!mounted) return;
-
-      final verified = verify != null && verify['status'] == true;
-      if (!verified) {
-        _toast((verify?['msg'] ?? 'reg_otp_wrong'.tr()).toString());
-        return;
-      }
-
-      // Fast account create (no files) so customer is not blocked by large docs.
       final result = await AuthServices().registerCustomer(
         companyName: _companyCtrl.text.trim(),
         tradeName: _tradeCtrl.text.trim(),
@@ -292,6 +351,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         city: _cityCtrl.text.trim(),
         postalCode: _postalCtrl.text.trim(),
         additionalNumber: _additionalCtrl.text.trim(),
+        country: _billingCountry.name,
         signerName: _signerNameCtrl.text.trim(),
         signerTitle: _signerTitleCtrl.text.trim(),
       );
@@ -385,9 +445,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   duration: const Duration(milliseconds: 320),
                   child: switch (_step) {
                     _RegStep.form => _buildFormStep(),
+                    _RegStep.otp => _buildOtpStep(),
                     _RegStep.agreement => _buildAgreementStep(),
                     _RegStep.sign => _buildSignStep(),
-                    _RegStep.otp => _buildOtpStep(),
                   },
                 ),
               ),
@@ -405,11 +465,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         children: [
           IconButton(
             onPressed: () {
-              if (_step == _RegStep.otp) {
-                setState(() => _step = _RegStep.sign);
-              } else if (_step == _RegStep.sign) {
+              if (_step == _RegStep.sign) {
                 setState(() => _step = _RegStep.agreement);
               } else if (_step == _RegStep.agreement) {
+                setState(() => _step = _RegStep.otp);
+              } else if (_step == _RegStep.otp) {
                 setState(() => _step = _RegStep.form);
               } else {
                 Navigator.of(context).maybePop();
@@ -486,8 +546,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 12),
           _field(
             controller: _managerCtrl,
-            label: 'reg_manager_name'.tr(),
+            label: 'reg_authorized_person'.tr(),
             icon: Icons.badge_outlined,
+            validator: _required,
+          ),
+          const SizedBox(height: 12),
+          _field(
+            controller: _signerTitleCtrl,
+            label: 'reg_sign_title_field'.tr(),
+            icon: Icons.work_outline,
+            hintText: 'reg_title_hint'.tr(),
             validator: _required,
           ),
           const SizedBox(height: 12),
@@ -496,6 +564,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             label: 'reg_cr_number'.tr(),
             icon: Icons.numbers_rounded,
             keyboardType: TextInputType.number,
+            inputFormatters: const [_EnglishDigitsFormatter()],
             validator: _required,
           ),
           const SizedBox(height: 18),
@@ -560,7 +629,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 if (digits.isEmpty) {
                   return 'reg_field_required'.tr();
                 }
-                if (!RegExp(r'^3[0-9]{13}3$').hasMatch(digits)) {
+                if (digits.length != 15) {
                   return 'reg_tax_invalid'.tr();
                 }
                 return null;
@@ -570,6 +639,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 18),
           _sectionLabel('reg_section_address'.tr()),
           const SizedBox(height: 10),
+          _billingCountryField(),
+          const SizedBox(height: 12),
           _field(
             controller: _buildingCtrl,
             label: 'reg_building_number'.tr(),
@@ -681,7 +752,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           const SizedBox(height: 28),
           _primaryButton(
             label: 'reg_continue'.tr(),
-            loading: false,
+            loading: _sendingOtp,
             onTap: _onRegisterPressed,
           ),
           const SizedBox(height: 14),
@@ -703,19 +774,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildAgreementStep() {
-    final data = AccountAgreementData.fromForm(
-      companyName: _companyCtrl.text,
-      crNumber: _crCtrl.text,
-      buildingNumber: _buildingCtrl.text,
-      street: _streetCtrl.text,
-      district: _districtCtrl.text,
-      city: _cityCtrl.text,
-      postalCode: _postalCtrl.text,
-      signerName: _signerNameCtrl.text.isEmpty
-          ? _managerCtrl.text
-          : _signerNameCtrl.text,
-      signerTitle: _signerTitleCtrl.text,
-    );
+    if (_loadingAgreement) {
+      return const Center(
+        key: ValueKey('register-agreement-loading'),
+        child: CircularProgressIndicator(color: _RegColors.purple),
+      );
+    }
+
+    final data = _buildAgreementData();
 
     return ListView(
       key: const ValueKey('register-agreement'),
@@ -744,7 +810,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'reg_agreement_title'.tr(),
+                data.title,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'GraphikArabic',
@@ -889,15 +955,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon: Icons.person_outline,
           validator: _required,
         ),
-        const SizedBox(height: 12),
-        _sectionLabel('reg_sign_title_field'.tr()),
-        const SizedBox(height: 10),
-        _field(
-          controller: _signerTitleCtrl,
-          label: 'reg_sign_title_field'.tr(),
-          icon: Icons.work_outline,
-          validator: _required,
-        ),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -914,26 +971,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
           isDark: _isDark,
           onChanged: () {},
         ),
-        const SizedBox(height: 16),
-        _sectionLabel('reg_stamp'.tr()),
-        const SizedBox(height: 8),
-        Text(
-          'reg_stamp_hint'.tr(),
-          style: TextStyle(
-            fontSize: 12,
-            color: _isDark ? Colors.white54 : Colors.black45,
+        const SizedBox(height: 14),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            onPressed: _showStampGuideSheet,
+            icon: Icon(
+              _stampFile == null
+                  ? Icons.add_photo_alternate_outlined
+                  : Icons.check_circle_outline,
+              color: const Color(0xFF0EA5A4),
+              size: 20,
+            ),
+            label: Text(
+              _stampFile == null
+                  ? 'reg_stamp_upload'.tr()
+                  : 'reg_stamp_change_or_tips'.tr(),
+              style: const TextStyle(
+                color: Color(0xFF0EA5A4),
+                fontWeight: FontWeight.w800,
+                fontSize: 14.5,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF0EA5A4),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+            ),
           ),
         ),
-        const SizedBox(height: 10),
-        _stampGuide(),
-        const SizedBox(height: 12),
-        _attachmentTile(
-          title: 'reg_stamp_upload'.tr(),
-          subtitle: 'reg_attach_required'.tr(),
-          file: _stampFile,
-          onTap: _pickStamp,
-          onClear: () => setState(() => _stampFile = null),
-        ),
+        if (_stampFile != null) ...[
+          const SizedBox(height: 6),
+          _attachmentTile(
+            title: _stampFile!.name,
+            subtitle: 'reg_attach_required'.tr(),
+            file: _stampFile,
+            onTap: _showStampGuideSheet,
+            onClear: () => setState(() => _stampFile = null),
+          ),
+        ],
         const SizedBox(height: 22),
         _primaryButton(
           label: 'reg_download_agreement'.tr(),
@@ -942,58 +1017,152 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 12),
         _primaryButton(
-          label: 'reg_continue_otp'.tr(),
-          loading: _sendingOtp,
+          label: 'reg_submit'.tr(),
+          loading: _verifyingOtp,
           onTap: _onSignContinue,
         ),
       ],
     );
   }
 
-  Widget _stampGuide() {
-    final steps = [
-      ('1', 'reg_stamp_step_1'.tr(), Icons.photo_camera_outlined),
-      ('2', 'reg_stamp_step_2'.tr(), Icons.crop_free_rounded),
-      ('3', 'reg_stamp_step_3'.tr(), Icons.upload_rounded),
-    ];
-    return Column(
-      children: [
-        for (final step in steps)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _isDark ? _RegColors.cardDark : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: _RegColors.purple.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(step.$3, color: _RegColors.purple, size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      '${step.$1}. ${step.$2}',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w600,
-                        color: _isDark ? Colors.white : _RegColors.dark,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+  Future<void> _showStampGuideSheet() async {
+    HapticFeedback.selectionClick();
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final steps = [
+          ('1', 'reg_stamp_step_1'.tr(), Icons.photo_camera_outlined),
+          ('2', 'reg_stamp_step_2'.tr(), Icons.crop_free_rounded),
+          ('3', 'reg_stamp_step_3'.tr(), Icons.verified_outlined),
+        ];
+        return Container(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            16,
+            20,
+            20 + MediaQuery.of(ctx).padding.bottom,
           ),
-      ],
+          decoration: BoxDecoration(
+            color: isDark ? _RegColors.cardDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : const Color(0xFFD9DEEA),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'reg_stamp_upload'.tr(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : _RegColors.dark,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'reg_stamp_hint'.tr(),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: isDark ? Colors.white54 : Colors.black45,
+                ),
+              ),
+              const SizedBox(height: 16),
+              for (final step in steps) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : const Color(0xFFF3FFFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFF0EA5A4).withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0EA5A4).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(step.$3, color: const Color(0xFF0EA5A4), size: 18),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '${step.$1}. ${step.$2}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : _RegColors.dark,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await _pickStamp();
+                  },
+                  icon: const Icon(Icons.upload_rounded),
+                  label: Text(
+                    _stampFile == null
+                        ? 'reg_stamp_pick_after_guide'.tr()
+                        : 'reg_stamp_reupload'.tr(),
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0EA5A4),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+              if (_stampFile != null) ...[
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(
+                    'reg_stamp_close_tips'.tr(),
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1006,9 +1175,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
     if (image == null) return;
     final bytes = await image.readAsBytes();
+    var name = image.name;
+    if (!name.contains('.')) {
+      final mime = image.mimeType ?? '';
+      final ext = mime.contains('png')
+          ? 'png'
+          : mime.contains('webp')
+              ? 'webp'
+              : 'jpg';
+      name = 'stamp.$ext';
+    }
     setState(() {
       _stampFile = PlatformFile(
-        name: image.name,
+        name: name,
         size: bytes.length,
         bytes: bytes,
         path: kIsWeb ? null : image.path,
@@ -1027,9 +1206,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _onSignContinue() async {
-    if (_signerNameCtrl.text.trim().isEmpty ||
-        _signerTitleCtrl.text.trim().isEmpty) {
+    if (_signerNameCtrl.text.trim().isEmpty) {
       _toast('reg_field_required'.tr());
+      return;
+    }
+    if (_signerTitleCtrl.text.trim().isEmpty) {
+      _toast('reg_title_required'.tr());
       return;
     }
     if (_stampFile == null) {
@@ -1037,14 +1219,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
     if (!await _captureSignature()) return;
-    await _sendOtp();
+    await _submitRegistration();
   }
 
   Future<void> _downloadAgreementPdf() async {
     if (_downloadingPdf) return;
-    if (_signerNameCtrl.text.trim().isEmpty ||
-        _signerTitleCtrl.text.trim().isEmpty) {
+    if (_signerNameCtrl.text.trim().isEmpty) {
       _toast('reg_field_required'.tr());
+      return;
+    }
+    if (_signerTitleCtrl.text.trim().isEmpty) {
+      _toast('reg_title_required'.tr());
       return;
     }
     if (_stampFile == null) {
@@ -1060,17 +1245,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _toast('reg_stamp_required'.tr());
         return;
       }
-      final data = AccountAgreementData.fromForm(
-        companyName: _companyCtrl.text,
-        crNumber: _crCtrl.text,
-        buildingNumber: _buildingCtrl.text,
-        street: _streetCtrl.text,
-        district: _districtCtrl.text,
-        city: _cityCtrl.text,
-        postalCode: _postalCtrl.text,
-        signerName: _signerNameCtrl.text,
-        signerTitle: _signerTitleCtrl.text,
-      );
+      final data = _buildAgreementData();
       final bytes = await AccountAgreementPdf.build(
         data: data,
         signatureBytes: _signatureBytes!,
@@ -1278,6 +1453,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required TextEditingController controller,
     required String label,
     required IconData icon,
+    String? hintText,
     String? Function(String?)? validator,
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
@@ -1294,9 +1470,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(
-          fontSize: 13,
-          color: _isDark ? Colors.white54 : Colors.black45,
+        hintText: hintText,
+        hintStyle: TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w500,
+          color: _isDark ? Colors.white38 : Colors.black38,
         ),
         prefixIcon: Icon(icon, color: _RegColors.purple, size: 20),
         filled: true,
@@ -1394,13 +1572,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return BlocBuilder<CheckPhoneCubit, CheckPhoneState>(
       builder: (context, state) {
         final cubit = CheckPhoneCubit.get(context);
+        final isSaudi = cubit.selectedCounty.code == '+966';
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 GestureDetector(
-                  onTap: () => showCountryCodeBottomSheet(context),
+                  onTap: () async {
+                    final prev = cubit.selectedCounty.code;
+                    await showCountryCodeBottomSheet(context);
+                    if (!mounted) return;
+                    if (cubit.selectedCounty.code != prev) {
+                      _phoneCtrl.clear();
+                      setState(() {});
+                    }
+                  },
                   child: Container(
                     height: 56,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1452,7 +1639,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     keyboardType: TextInputType.phone,
                     inputFormatters: [
                       const _EnglishDigitsFormatter(),
-                      LengthLimitingTextInputFormatter(9),
+                      LengthLimitingTextInputFormatter(isSaudi ? 9 : 15),
                     ],
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) {
@@ -1471,7 +1658,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           _isDark ? Colors.white : _RegColors.dark,
                     ),
                     decoration: InputDecoration(
-                      hintText: '5XX XXX XXXX',
+                      hintText: isSaudi ? '5XX XXX XXXX' : 'XXXXXXXXXX',
                       filled: true,
                       fillColor:
                           _isDark ? _RegColors.cardDark : Colors.white,
@@ -1509,7 +1696,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'reg_phone_hint_saudi'.tr(),
+              isSaudi
+                  ? 'reg_phone_hint_saudi'.tr()
+                  : 'reg_phone_hint_intl'.tr(
+                      namedArgs: {
+                        'code': cubit.selectedCounty.code,
+                        'country': cubit.selectedCounty.localizedName(
+                          context.locale.languageCode,
+                        ),
+                      },
+                    ),
               style: TextStyle(
                 fontSize: 11.5,
                 color: _isDark ? Colors.white38 : Colors.black38,
@@ -1518,6 +1714,124 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _billingCountryField() {
+    final locale = context.locale.languageCode;
+    return InkWell(
+      onTap: () async {
+        await showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (ctx) {
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.6,
+              ),
+              decoration: BoxDecoration(
+                color: isDark ? _RegColors.cardDark : Colors.white,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+              ),
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 28),
+                itemCount: countryCodesList.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, index) {
+                  final country = countryCodesList[index];
+                  final selected = country.code == _billingCountry.code;
+                  return ListTile(
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: SvgPicture.asset(
+                        country.flag,
+                        width: 28,
+                        height: 20,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    title: Text(
+                      country.localizedName(locale),
+                      style: TextStyle(
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                    trailing: selected
+                        ? const Icon(Icons.check_circle,
+                            color: _RegColors.purple)
+                        : null,
+                    onTap: () {
+                      setState(() => _billingCountry = country);
+                      Navigator.pop(ctx);
+                    },
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+      borderRadius: BorderRadius.circular(14),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: 'reg_country'.tr(),
+          labelStyle: TextStyle(
+            fontSize: 13,
+            color: _isDark ? Colors.white54 : Colors.black45,
+          ),
+          prefixIcon:
+              const Icon(Icons.public_rounded, color: _RegColors.purple, size: 20),
+          filled: true,
+          fillColor: _isDark ? _RegColors.cardDark : Colors.white,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: _isDark ? Colors.white12 : const Color(0xFFE8EAF0),
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(
+              color: _isDark ? Colors.white12 : const Color(0xFFE8EAF0),
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: SvgPicture.asset(
+                _billingCountry.flag,
+                width: 26,
+                height: 18,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _billingCountry.localizedName(locale),
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  color: _isDark ? Colors.white : _RegColors.dark,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: _isDark ? Colors.white54 : Colors.black45,
+            ),
+          ],
+        ),
+      ),
     );
   }
 

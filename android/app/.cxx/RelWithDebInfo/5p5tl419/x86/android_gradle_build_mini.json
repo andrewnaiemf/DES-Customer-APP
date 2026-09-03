@@ -1,0 +1,20 @@
+{
+  "buildFiles": [
+    "/Users/omnianeil/flutter/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/omnianeil/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/omnianeil/Documents/cods/last/Driveshield-app-main-3/android/app/.cxx/RelWithDebInfo/5p5tl419/x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/omnianeil/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/omnianeil/Documents/cods/last/Driveshield-app-main-3/android/app/.cxx/RelWithDebInfo/5p5tl419/x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {}
+}

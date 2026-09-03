@@ -1,3 +1,5 @@
+import 'package:app/models/account_agreement_template.dart';
+
 class AccountAgreementData {
   final String companyName;
   final String crNumber;
@@ -8,6 +10,12 @@ class AccountAgreementData {
   final String dateD;
   final String dateM;
   final String dateY;
+  final String title;
+  final String intro;
+  final String partyOne;
+  final String partyTwo;
+  final List<Map<String, String>> clauses;
+  final int? templateVersion;
 
   const AccountAgreementData({
     required this.companyName,
@@ -19,6 +27,12 @@ class AccountAgreementData {
     required this.dateD,
     required this.dateM,
     required this.dateY,
+    required this.title,
+    required this.intro,
+    required this.partyOne,
+    required this.partyTwo,
+    required this.clauses,
+    this.templateVersion,
   });
 
   factory AccountAgreementData.fromForm({
@@ -31,6 +45,7 @@ class AccountAgreementData {
     required String postalCode,
     required String signerName,
     required String signerTitle,
+    AccountAgreementTemplateModel? template,
     DateTime? at,
   }) {
     final now = at ?? DateTime.now();
@@ -52,108 +67,88 @@ class AccountAgreementData {
       'المملكة العربية السعودية',
     ].where((e) => e.trim().isNotEmpty).join('، ');
 
+    final resolvedCompany =
+        companyName.trim().isEmpty ? '______________________________' : companyName.trim();
+    final resolvedCr =
+        crNumber.trim().isEmpty ? '__________________' : crNumber.trim();
+    final resolvedHq =
+        hq.isEmpty ? '______________________________' : hq;
+    final resolvedSigner =
+        signerName.trim().isEmpty ? '______________________________' : signerName.trim();
+    final resolvedTitle =
+        signerTitle.trim().isEmpty ? '__________________' : signerTitle.trim();
+
+    final placeholders = {
+      '{{day_name}}': days[now.weekday - 1],
+      '{{date_d}}': now.day.toString().padLeft(2, '0'),
+      '{{date_m}}': now.month.toString().padLeft(2, '0'),
+      '{{date_y}}': '${now.year}',
+      '{{company_name}}': resolvedCompany,
+      '{{cr_number}}': resolvedCr,
+      '{{headquarters}}': resolvedHq,
+      '{{signer_name}}': resolvedSigner,
+      '{{signer_title}}': resolvedTitle,
+    };
+
+    String apply(String value) {
+      var out = value;
+      placeholders.forEach((key, replacement) {
+        out = out.replaceAll(key, replacement);
+      });
+      return out;
+    }
+
+    if (template != null) {
+      return AccountAgreementData(
+        companyName: resolvedCompany,
+        crNumber: resolvedCr,
+        headquarters: resolvedHq,
+        signerName: resolvedSigner,
+        signerTitle: resolvedTitle,
+        dayName: days[now.weekday - 1],
+        dateD: now.day.toString().padLeft(2, '0'),
+        dateM: now.month.toString().padLeft(2, '0'),
+        dateY: '${now.year}',
+        title: template.title,
+        intro: apply(template.introTemplate),
+        partyOne: template.partyOne,
+        partyTwo: apply(template.partyTwoTemplate),
+        clauses: template.clauses
+            .map((clause) => {
+                  'title': clause.title,
+                  'body': clause.body,
+                })
+            .toList(),
+        templateVersion: template.version,
+      );
+    }
+
     return AccountAgreementData(
-      companyName: companyName.trim().isEmpty ? '______________________________' : companyName.trim(),
-      crNumber: crNumber.trim().isEmpty ? '__________________' : crNumber.trim(),
-      headquarters: hq.isEmpty ? '______________________________' : hq,
-      signerName: signerName.trim().isEmpty ? '______________________________' : signerName.trim(),
-      signerTitle: signerTitle.trim().isEmpty ? '__________________' : signerTitle.trim(),
+      companyName: resolvedCompany,
+      crNumber: resolvedCr,
+      headquarters: resolvedHq,
+      signerName: resolvedSigner,
+      signerTitle: resolvedTitle,
       dayName: days[now.weekday - 1],
       dateD: now.day.toString().padLeft(2, '0'),
       dateM: now.month.toString().padLeft(2, '0'),
-      dateY: now.year.toString(),
+      dateY: '${now.year}',
+      title: 'اتفاقية فتح حساب',
+      intro:
+          'إنه في يوم ${days[now.weekday - 1]} الموافق ${now.day.toString().padLeft(2, '0')} / ${now.month.toString().padLeft(2, '0')} / ${now.year}م، تم الاتفاق بين كل من:',
+      partyOne:
+          'الطرف الأول: شركة دروع المحرك الماسية للتجارة، شركة ذات مسؤولية محدودة، سجل تجاري رقم 1010839238، ومقرها الرئيسي الرياض – المملكة العربية السعودية، ويمثلها في هذا العقد السيد/ أحمد محمد الغول بصفته المدير العام، ويشار إليها فيما بعد بـ "الطرف الأول" أو "المورد".',
+      partyTwo:
+          'الطرف الثاني: شركة/مؤسسة $resolvedCompany، سجل تجاري رقم $resolvedCr، ومقرها $resolvedHq، ويمثلها السيد/ $resolvedSigner بصفته $resolvedTitle، ويشار إليها فيما بعد بـ "الطرف الثاني" أو "العميل".',
+      clauses: _defaultClauses(),
     );
   }
 
-  String get intro =>
-      'إنه في يوم $dayName الموافق $dateD / $dateM / ${dateY}م، تم الاتفاق بين كل من:';
-
-  String get partyOne =>
-      'الطرف الأول: شركة دروع المحرك الماسية للتجارة، شركة ذات مسؤولية محدودة، سجل تجاري رقم 1010839238، ومقرها الرئيسي الرياض – المملكة العربية السعودية، ويمثلها في هذا العقد السيد/ أحمد محمد الغول بصفته المدير العام، ويشار إليها فيما بعد بـ "الطرف الأول" أو "المورد".';
-
-  String get partyTwo =>
-      'الطرف الثاني: شركة/مؤسسة $companyName، سجل تجاري رقم $crNumber، ومقرها $headquarters، ويمثلها السيد/ $signerName بصفته $signerTitle، ويشار إليها فيما بعد بـ "الطرف الثاني" أو "العميل".';
-
-  List<Map<String, String>> get clauses => const [
+  static List<Map<String, String>> _defaultClauses() => const [
         {
           'title': 'تمهيد',
           'body':
               'حيث إن الطرف الأول يعمل في مجال توريد وبيع وتوزيع منتجات ومواد العناية بالسيارات وغيرها من المنتجات التي يقوم بتسويقها أو توزيعها، وحيث أبدى الطرف الثاني رغبته في فتح حساب تجاري لدى الطرف الأول وشراء المنتجات منه فقد اتفق الطرفان على تنظيم العلاقة التجارية بينهما وفقًا لأحكام هذا العقد.\nويعتبر هذا التمهيد جزءًا لا يتجزأ من العقد ومكملاً ومفسرًا لأحكامه.',
-        },
-        {
-          'title': 'البند (1): موضوع العقد وفتح الحساب',
-          'body':
-              'يوافق الطرف الأول بموجب هذا العقد على فتح حساب تجاري للطرف الثاني لديه بغرض شراء وتوريد المنتجات. يشمل نطاق التوريد دون حصر أفلام حماية طلاء السيارات (PPF)، وأفلام العزل الحراري للسيارات والمباني، ومنتجات النانو سيراميك، وأدوات ومستلزمات العناية بالسيارات، وأي منتجات أخرى يقوم الطرف الأول بطرحها أو توزيعها خلال مدة العقد. يعتبر توقيع هذا العقد واعتماد بيانات الطرف الثاني أساسًا لفتح الحساب التجاري لديه لدى الطرف الأول. لا يعني فتح الحساب منح الطرف الثاني تسهيلات أو حدًا ائتمانيًا ويخضع أي ائتمان أو أجل للسداد لموافقة الطرف الأول وشروطه المعتمدة.',
-        },
-        {
-          'title': 'البند (2): DES App والتعامل الرسمي بين الطرفين',
-          'body':
-              'يتفق الطرفان على اعتماد DES App كقناة رسمية وأساسية لإدارة وتنفيذ وتوثيق التعاملات التجارية بينهما بعد تفعيل حساب الطرف الثاني على التطبيق. تعتبر الطلبات وأوامر الشراء والتأكيدات والفواتير وكشوف الحساب وإشعارات السداد والإشعارات والمراسلات والبيانات التي تتم أو تصدر أو تعتمد من خلال DES App جزءًا من التعامل الرسمي والمعتمد بين الطرفين. يعتبر أي طلب شراء أو إجراء يتم إرساله من خلال حساب الطرف الثاني في DES App صادرًا عنه ومعتمدًا من قبله، ويلتزم الطرف الثاني بالطلب وقيمته وشروطه بمجرد قبوله أو اعتماده من الطرف الأول. يلتزم الطرف الثاني بالمحافظة على بيانات الدخول الخاصة بحسابه. تعتبر السجلات الإلكترونية مرجعًا لإثبات التعامل بما لا يتعارض مع أنظمة المملكة العربية السعودية.',
-        },
-        {
-          'title': 'البند (3): الطلبات والتوريد',
-          'body':
-              'يقوم الطرف الثاني بطلب المنتجات وفق احتياجاته من خلال DES App أو أي قناة أخرى يعتمدها الطرف الأول. تخضع الطلبات لتوفر المنتجات وقبول الطرف الأول للطلب. يلتزم الطرف الأول بتوريد المنتجات المعتمدة وفق الكميات والمواصفات المتفق عليها لكل طلب.',
-        },
-        {
-          'title': 'البند (4): الأسعار',
-          'body':
-              'تخضع المنتجات للأسعار المعتمدة لدى الطرف الأول وقت قبول الطلب، ما لم يوجد عرض سعر أو اتفاق خاص ساري المفعول. يحق للطرف الأول تعديل أسعار منتجاته مستقبلًا، ولا يسري التعديل على الطلبات التي سبق قبولها.',
-        },
-        {
-          'title': 'البند (5): الفواتير والسداد',
-          'body':
-              'يلتزم الطرف الثاني بسداد قيمة المنتجات والفواتير وفق شروط ومدة السداد المحددة. أي اعتراض على فاتورة يجب إبلاغه خلال سبعة (7) أيام من إصدارها، وإلا اعتبرت مقبولة. يحق للطرف الأول تعليق الحساب أو إيقاف التوريد عند وجود مبالغ متأخرة.',
-        },
-        {
-          'title': 'البند (6): التزامات الطرف الأول',
-          'body':
-              'توريد المنتجات المعتمدة، وضمان مطابقتها للمواصفات، وتوفير الإرشادات الفنية عند الحاجة، وتطبيق شروط الضمان الخاصة بكل منتج.',
-        },
-        {
-          'title': 'البند (7): التزامات الطرف الثاني',
-          'body':
-              'تقديم بيانات ومستندات صحيحة، وتحديثها عند التغيير، واستخدام المنتجات وفق التعليمات، وسداد المستحقات، والمحافظة على بيانات الحساب، وفحص المنتجات عند الاستلام.',
-        },
-        {
-          'title': 'البند (8): الضمان والمطالبات',
-          'body':
-              'تخضع المنتجات لشروط ومدة الضمان الخاصة بكل منتج. يقتصر الضمان على عيوب التصنيع ولا يشمل سوء الاستخدام أو التركيب المخالف أو الأضرار الخارجية.',
-        },
-        {
-          'title': 'البند (9): المرتجعات والاستبدال',
-          'body':
-              'تخضع المرتجعات والاستبدال لسياسة الطرف الأول، ولا يجوز إعادة أي منتجات دون موافقته مع مراعاة الحقوق المقررة نظامًا.',
-        },
-        {
-          'title': 'البند (10): سرية المعلومات',
-          'body':
-              'يلتزم الطرفان بالمحافظة على سرية المعلومات التجارية والمالية والأسعار الخاصة وعدم إفشائها إلا بموافقة الطرف الآخر أو إذا كان الإفصاح مطلوبًا نظامًا.',
-        },
-        {
-          'title': 'البند (11): طبيعة العلاقة بين الطرفين',
-          'body':
-              'لا يترتب على هذا العقد إنشاء وكالة أو شراكة أو امتياز تجاري أو علاقة عمل بين الطرفين.',
-        },
-        {
-          'title': 'البند (12): مدة العقد وإنهاؤه',
-          'body':
-              'يسري هذا العقد من تاريخ توقيعه ويستمر ما لم يُنهَ وفق أحكامه. يجوز لأي طرف إنهاؤه بإشعار الطرف الآخر. لا يسقط الإنهاء المبالغ أو الالتزامات السابقة.',
-        },
-        {
-          'title': 'البند (13): الإشعارات والمراسلات',
-          'body':
-              'تعتمد بيانات الاتصال المسجلة في العقد أو في DES App كبيانات رسمية، وتعتبر المراسلات عبر التطبيق أو البريد الإلكتروني مراسلات رسمية.',
-        },
-        {
-          'title': 'البند (14): النظام الواجب التطبيق وتسوية النزاعات',
-          'body':
-              'يخضع هذا العقد لأنظمة المملكة العربية السعودية، وتُسوّى الخلافات وديًا أولاً ثم أمام الجهة القضائية المختصة في المملكة.',
-        },
-        {
-          'title': 'البند (15): أحكام عامة',
-          'body':
-              'تمثل هذه الاتفاقية الإطار العام للعلاقة التجارية، ويجوز توقيعها واعتمادها إلكترونيًا وفق الأنظمة المعمول بها.',
         },
       ];
 }

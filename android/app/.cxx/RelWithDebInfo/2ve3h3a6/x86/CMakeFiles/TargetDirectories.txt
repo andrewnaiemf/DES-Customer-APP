@@ -1,0 +1,2 @@
+/Users/omnianeil/Downloads/Driveshield-app-main-3/android/app/.cxx/RelWithDebInfo/2ve3h3a6/x86/CMakeFiles/edit_cache.dir
+/Users/omnianeil/Downloads/Driveshield-app-main-3/android/app/.cxx/RelWithDebInfo/2ve3h3a6/x86/CMakeFiles/rebuild_cache.dir

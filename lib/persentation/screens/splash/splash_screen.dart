@@ -1,4 +1,5 @@
-import 'dart:math' as math;
+import 'dart:async';
+import 'dart:ui';
 
 import 'package:app/data/constants/assets.dart';
 import 'package:app/functions/my_navigation.dart';
@@ -16,28 +17,65 @@ import '../auth/login_screen.dart' hide AnimatedBuilder;
 // 🎨 ألوان الهوية البصرية للتطبيق
 // ═══════════════════════════════════════════════════════════════════════════
 class AppBrandColors {
-  static const Color background = Color(0xFF0B0B12);
+  // Core Colors
+  static const Color background = Color(0xFF121212);
   static const Color surfaceDark = Color(0xFF181818);
+  static const Color surfaceLight = Color(0xFF282828);
+  static const Color dark = Color(0xFF081428);
   static const Color purple = Color(0xFF6842E2);
-  static const Color purpleLight = Color(0xFF9B5CFF);
   static const Color lightGreen = Color(0xFF28E6C5);
+  static const Color darkGray = Color(0xFFC6CBE0);
+  static const Color lightGray = Color(0xFFF9FAFB);
   static const Color white = Colors.white;
+  static const Color meshBlue = Color(0xFF1E3A8A);
 
+  // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [purple, Color(0xFF8B5CF6)],
   );
 
-  static const LinearGradient brandGradient = LinearGradient(
+  static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [purpleLight, purple, lightGreen],
+    colors: [lightGreen, Color(0xFF10B981)],
+  );
+
+  static const LinearGradient storyGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [purple, lightGreen],
   );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 🚀 شاشة البداية (شاشة واحدة بحركة احترافية)
+// 📖 نموذج الستوري
+// ═══════════════════════════════════════════════════════════════════════════
+class StoryItem {
+  final String title;
+  final String subtitle;
+  final String description;
+  final IconData icon;
+  final Color accentColor;
+  final List<Color> gradientColors;
+  final String? imagePath;
+  final Duration duration;
+
+  const StoryItem({
+    required this.title,
+    required this.subtitle,
+    required this.description,
+    required this.icon,
+    required this.accentColor,
+    required this.gradientColors,
+    this.imagePath,
+    this.duration = const Duration(seconds: 3),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🚀 شاشة البداية بنظام الستوريز
 // ═══════════════════════════════════════════════════════════════════════════
 class SplashScreen extends StatefulWidget {
   const SplashScreen({
@@ -52,16 +90,20 @@ class SplashScreen extends StatefulWidget {
   // ─────────────────────────────────────────────────────────────────────────
   // 🔧 Splash Management Methods
   // ─────────────────────────────────────────────────────────────────────────
+  
+  /// تعيين أن الـ Splash تم عرضه (يتم استدعاؤها بعد عرض الستوريز)
   static Future<void> markSplashAsShown() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('splash_shown', true);
   }
 
+  /// إعادة تعيين حالة الـ Splash (يتم استدعاؤها عند Logout)
   static Future<void> resetSplashState() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('splash_shown');
   }
 
+  /// التحقق من ضرورة عرض الـ Splash
   static Future<bool> shouldShowSplash() async {
     final prefs = await SharedPreferences.getInstance();
     final hasShownSplash = prefs.getBool('splash_shown') ?? false;
@@ -74,95 +116,80 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with TickerProviderStateMixin {
-  // 🎬 حركة الدخول الرئيسية (تشغّل التسلسل ثم الانتقال)
-  late final AnimationController _introController;
-  // 🔁 حركة مستمرة (توهّج + دوران الجزيئات)
-  late final AnimationController _ambientController;
-
-  // Intro animations
-  late final Animation<double> _logoScale;
-  late final Animation<double> _logoOpacity;
-  late final Animation<double> _ringProgress;
-  late final Animation<double> _titleOpacity;
-  late final Animation<double> _taglineOpacity;
-  late final Animation<double> _barProgress;
-  late final Animation<double> _bgReveal;
-  late final Animation<double> _bubblesOpacity;
-
-  bool _navigated = false;
-
-  static const _orbitItems = <_OrbitItem>[
-    _OrbitItem(Icons.verified_user_rounded, 'splash_feat_warranty', AppBrandColors.lightGreen),
-    _OrbitItem(Icons.inventory_2_rounded, 'splash_feat_products', AppBrandColors.purpleLight),
-    _OrbitItem(Icons.assignment_rounded, 'splash_feat_orders', Color(0xFF60A5FA)),
-    _OrbitItem(Icons.workspace_premium_rounded, 'splash_feat_loyalty', Color(0xFFFBBF24)),
-    _OrbitItem(Icons.shield_moon_rounded, 'splash_feat_ppf', Color(0xFF34D399)),
-    _OrbitItem(Icons.headset_mic_rounded, 'splash_feat_support', Color(0xFFF472B6)),
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📊 Story Data
+  // ─────────────────────────────────────────────────────────────────────────
+  final List<StoryItem> _stories = const [
+    StoryItem(
+      title: 'splash_welcome_title',
+      subtitle: 'Diamond Engine Shields',
+      description: 'splash_welcome_description',
+      icon: Icons.diamond_rounded,
+      accentColor: AppBrandColors.purple,
+      gradientColors: [Color(0xFF6842E2), Color(0xFF8B5CF6)],
+    ),
+    StoryItem(
+      title: 'splash_smart_management_title',
+      subtitle: 'Smart Management',
+      description: 'splash_smart_management_description',
+      icon: Icons.analytics_rounded,
+      accentColor: AppBrandColors.lightGreen,
+      gradientColors: [Color(0xFF28E6C5), Color(0xFF10B981)],
+    ),
+    StoryItem(
+      title: 'splash_loyalty_title',
+      subtitle: 'Rewards',
+      description: 'splash_loyalty_description',
+      icon: Icons.card_giftcard_rounded,
+      accentColor: Color(0xFFFFD700),
+      gradientColors: [Color(0xFFFFD700), Color(0xFFFFA500)],
+    ),
+    StoryItem(
+      title: 'splash_security_title',
+      subtitle: 'High Security',
+      description: 'splash_security_description',
+      icon: Icons.security_rounded,
+      accentColor: Color(0xFF3B82F6),
+      gradientColors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+    ),
+    StoryItem(
+      title: 'splash_get_started_title',
+      subtitle: 'Get Started',
+      description: 'splash_get_started_description',
+      icon: Icons.rocket_launch_rounded,
+      accentColor: AppBrandColors.purple,
+      gradientColors: [Color(0xFF6842E2), Color(0xFF28E6C5)],
+    ),
   ];
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🎬 Animation Controllers
+  // ─────────────────────────────────────────────────────────────────────────
+  late final AnimationController _storyController;
+  late final AnimationController _contentController;
+  late final AnimationController _pulseController;
+  late final AnimationController _orbController;
+  late final AnimationController _transitionController;
+
+  late final Animation<double> _contentFadeAnimation;
+  late final Animation<Offset> _contentSlideAnimation;
+  late final Animation<double> _pulseAnimation;
+  late final Animation<double> _orbAnimation;
+  late final Animation<double> _scaleAnimation;
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📊 State Variables
+  // ─────────────────────────────────────────────────────────────────────────
+  int _currentStoryIndex = 0;
+  bool _isPaused = false;
+  bool _isTransitioning = false;
 
   @override
   void initState() {
     super.initState();
     _setSystemUIStyle();
-
-    _introController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 3400),
-    );
-
-    _ambientController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
-
-    _bgReveal = CurvedAnimation(
-      parent: _introController,
-      curve: const Interval(0.0, 0.45, curve: Curves.easeOut),
-    );
-
-    _logoScale = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _introController,
-        curve: const Interval(0.05, 0.55, curve: Curves.easeOutBack),
-      ),
-    );
-
-    _logoOpacity = CurvedAnimation(
-      parent: _introController,
-      curve: const Interval(0.05, 0.40, curve: Curves.easeOut),
-    );
-
-    _ringProgress = CurvedAnimation(
-      parent: _introController,
-      curve: const Interval(0.15, 0.70, curve: Curves.easeInOutCubic),
-    );
-
-    _taglineOpacity = CurvedAnimation(
-      parent: _introController,
-      curve: const Interval(0.58, 0.86, curve: Curves.easeOut),
-    );
-
-    _bubblesOpacity = CurvedAnimation(
-      parent: _introController,
-      curve: const Interval(0.32, 0.72, curve: Curves.easeOut),
-    );
-
-    _titleOpacity = CurvedAnimation(
-      parent: _introController,
-      curve: const Interval(0.45, 0.75, curve: Curves.easeOut),
-    );
-
-    _barProgress = CurvedAnimation(
-      parent: _introController,
-      curve: const Interval(0.70, 1.0, curve: Curves.easeInOut),
-    );
-
-    _introController.forward();
-    _introController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _navigateToNextScreen();
-      }
-    });
+    _initializeAnimations();
+    _startStory();
   }
 
   void _setSystemUIStyle() {
@@ -176,13 +203,157 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  void _navigateToNextScreen() {
-    if (_navigated) return;
-    _navigated = true;
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🎬 Initialize Animations
+  // ─────────────────────────────────────────────────────────────────────────
+  void _initializeAnimations() {
+    // Story Progress Controller
+    _storyController = AnimationController(
+      duration: _stories[_currentStoryIndex].duration,
+      vsync: this,
+    );
 
-    HapticFeedback.lightImpact();
+    _storyController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _goToNextStory();
+      }
+    });
+
+    // Content Animation Controller
+    _contentController = AnimationController(
+      duration: const Duration(milliseconds: 499),
+      vsync: this,
+    );
+
+    _contentFadeAnimation = Tween<double>(begin: 0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _contentController,
+        curve: Curves.easeOut,
+      ),
+    );
+
+    _contentSlideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _contentController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    // Pulse Animation
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1999),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    // Orb Animation
+    _orbController = AnimationController(
+      duration: const Duration(seconds: 5),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _orbAnimation = Tween<double>(begin: 0, end: 1.0).animate(
+      CurvedAnimation(parent: _orbController, curve: Curves.easeInOut),
+    );
+
+    // Transition Animation
+    _transitionController = AnimationController(
+      duration: const Duration(milliseconds: 299),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _transitionController,
+        curve: Curves.easeOutBack,
+      ),
+    );
+  }
+
+  void _startStory() {
+    _storyController.forward();
+    _contentController.forward();
+    _transitionController.forward();
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🎯 Story Navigation
+  // ─────────────────────────────────────────────────────────────────────────
+  void _goToNextStory() {
+    if (_currentStoryIndex < _stories.length - 1) {
+      setState(() {
+        _isTransitioning = true;
+        _currentStoryIndex++;
+      });
+      _resetAndPlayStory();
+    } else {
+      _navigateToNextScreen();
+    }
+  }
+
+  void _goToPreviousStory() {
+    if (_currentStoryIndex > 0) {
+      setState(() {
+        _isTransitioning = true;
+        _currentStoryIndex--;
+      });
+      _resetAndPlayStory();
+    } else {
+      _storyController.reset();
+      _storyController.forward();
+    }
+  }
+
+  void _resetAndPlayStory() {
+    _storyController.reset();
+    _contentController.reset();
+    _transitionController.reset();
+
+    _storyController.duration = _stories[_currentStoryIndex].duration;
+
+    Future.delayed(const Duration(milliseconds: 49), () {
+      if (mounted) {
+        setState(() => _isTransitioning = false);
+        _storyController.forward();
+        _contentController.forward();
+        _transitionController.forward();
+      }
+    });
+  }
+
+  void _pauseStory() {
+    if (!_isPaused) {
+      setState(() => _isPaused = true);
+      _storyController.stop();
+      HapticFeedback.lightImpact();
+    }
+  }
+
+  void _resumeStory() {
+    if (_isPaused) {
+      setState(() => _isPaused = false);
+      _storyController.forward();
+    }
+  }
+
+  void _skipToEnd() {
+    _navigateToNextScreen();
+  }
+
+  void _navigateToNextScreen() {
+    HapticFeedback.mediumImpact();
+    
+    // تعيين أن الـ Splash تم عرضه
     SplashScreen.markSplashAsShown();
 
+    // 🔗 navigateOffAll بدل navigateTo: نشيل شاشة الـ onboarding من الستاك خالص
+    // عشان InitialScreen (وجواها Layout) تبقى أول route. ده ضروري عشان توجيه
+    // رابط الهوم (popUntil isFirst) ميرجّعش لشاشة التخطي تاني، وكمان أحسن UX
+    // (مفيش رجوع بالـ back لشاشة الـ onboarding).
     MyNavigator.navigateOffAll(
       context,
       InitialScreen(
@@ -194,391 +365,762 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _introController.dispose();
-    _ambientController.dispose();
+    _storyController.dispose();
+    _contentController.dispose();
+    _pulseController.dispose();
+    _orbController.dispose();
+    _transitionController.dispose();
     super.dispose();
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 🎨 Build
+  // 🎨 Build Method
   // ─────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final currentStory = _stories[_currentStoryIndex];
     final size = MediaQuery.of(context).size;
-    final shortest = math.min(size.width, size.height);
-    final logoBox = math.min(shortest * 0.22, 112.0);
-    final ringBox = logoBox * 1.62;
-    final orbitBox = math.min(shortest * 0.86, 360.0);
+    final screenWidth = size.width;
 
     return Scaffold(
       backgroundColor: AppBrandColors.background,
       body: GestureDetector(
-        onTap: _navigateToNextScreen, // اضغط للتخطي
-        child: AnimatedBuilder(
-          animation: Listenable.merge([_introController, _ambientController]),
-          builder: (context, _) {
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                _buildBackground(size),
-                Opacity(
-                  opacity: _logoOpacity.value,
-                  child: CustomPaint(
-                    size: Size(size.width, size.height),
-                    painter: _ParticlesPainter(
-                      progress: _ambientController.value,
-                    ),
+        // Tap Regions for navigation
+        onTapDown: (details) {
+          final tapPosition = details.globalPosition.dx;
+
+          if (tapPosition < screenWidth * 0.3) {
+            // Left tap - Previous story
+            _goToPreviousStory();
+          } else if (tapPosition > screenWidth * 0.7) {
+            // Right tap - Next story
+            _goToNextStory();
+          }
+        },
+        // Long press to pause
+        onLongPressStart: (_) => _pauseStory(),
+        onLongPressEnd: (_) => _resumeStory(),
+        child: Stack(
+          children: [
+            // ═══════════════════════════════════════════════════════════════
+            // 🌌 Animated Background
+            // ═══════════════════════════════════════════════════════════════
+            _buildAnimatedBackground(currentStory),
+
+            // ═══════════════════════════════════════════════════════════════
+            // ✨ Floating Orbs
+            // ═══════════════════════════════════════════════════════════════
+            _buildFloatingOrbs(currentStory),
+
+            // ═══════════════════════════════════════════════════════════════
+            // ✨ Particles
+            // ═══════════════════════════════════════════════════════════════
+            _buildParticles(),
+
+            // ═══════════════════════════════════════════════════════════════
+            // 📱 Main Content
+            // ═══════════════════════════════════════════════════════════════
+            SafeArea(
+              child: Column(
+                children: [
+                  // Progress Bar (Instagram Style)
+                  _buildStoryProgressBar(),
+
+                  // Header with Skip Button
+                  _buildHeader(screenWidth),
+
+                  // Main Content
+                  Expanded(
+                    child: _buildStoryContent(currentStory, screenWidth),
                   ),
-                ),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Spacer(flex: 4),
-                    _buildLogoOrbit(logoBox, ringBox, orbitBox),
-                    SizedBox(height: size.height * 0.028),
-                    _buildTagline(),
-                    const Spacer(flex: 4),
-                    _buildProgressBar(size),
-                    const SizedBox(height: 28),
-                    const Spacer(flex: 1),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
 
-  // 🌌 الخلفية
-  Widget _buildBackground(Size size) {
-    // مركز التوهّج يتحرك بلطف
-    final t = _ambientController.value;
-    final dx = math.sin(t * 2 * math.pi) * 0.3;
-    final dy = math.cos(t * 2 * math.pi) * 0.25;
-
-    return Positioned.fill(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment(dx, -0.35 + dy),
-            radius: 1.25,
-            colors: [
-              AppBrandColors.purple.withOpacity(0.35 * _bgReveal.value),
-              AppBrandColors.background,
-            ],
-            stops: const [0.0, 0.75],
-          ),
-        ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: Alignment(-dx, 0.6 - dy),
-              radius: 1.1,
-              colors: [
-                AppBrandColors.lightGreen.withOpacity(0.12 * _bgReveal.value),
-                Colors.transparent,
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // 🔵 اللوجو في الوسط + بابلز الميزات حوله
-  Widget _buildLogoOrbit(double logoBox, double ringBox, double orbitBox) {
-    final pulse = 1 + math.sin(_ambientController.value * 2 * math.pi) * 0.04;
-    final orbitSpin = _ambientController.value * 2 * math.pi * 0.22;
-    final bubbleSize = math.min(orbitBox * 0.168, 62.0);
-    final orbitRadius = (orbitBox / 2) - (bubbleSize * 0.62);
-
-    return SizedBox(
-      width: orbitBox,
-      height: orbitBox,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          for (int i = 0; i < _orbitItems.length; i++)
-            _buildOrbitBubble(
-              item: _orbitItems[i],
-              index: i,
-              total: _orbitItems.length,
-              radius: orbitRadius,
-              spin: orbitSpin,
-              size: bubbleSize,
-            ),
-          Transform.rotate(
-            angle: _ambientController.value * 2 * math.pi,
-            child: CustomPaint(
-              size: Size(ringBox, ringBox),
-              painter: _RingPainter(progress: _ringProgress.value),
-            ),
-          ),
-          Transform.scale(
-            scale: _logoScale.value * pulse,
-            child: Opacity(
-              opacity: _logoOpacity.value,
-              child: Container(
-                width: logoBox,
-                height: logoBox,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: AppBrandColors.primaryGradient,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppBrandColors.purple.withOpacity(0.55),
-                      blurRadius: 40,
-                      spreadRadius: 4,
-                    ),
-                    BoxShadow(
-                      color: AppBrandColors.lightGreen.withOpacity(0.20),
-                      blurRadius: 60,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                padding: EdgeInsets.all(logoBox * 0.24),
-                child: SvgPicture.asset(
-                  Assets.logoo,
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
-                    BlendMode.srcIn,
-                  ),
-                ),
+                  // Footer
+                  _buildFooter(screenWidth),
+                ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildOrbitBubble({
-    required _OrbitItem item,
-    required int index,
-    required int total,
-    required double radius,
-    required double spin,
-    required double size,
-  }) {
-    final angle = (index / total) * 2 * math.pi - math.pi / 2 + spin;
-    final dx = math.cos(angle) * radius;
-    final dy = math.sin(angle) * radius;
-    final appear = Curves.easeOut.transform(
-      ((_bubblesOpacity.value * total) - index * 0.12).clamp(0.0, 1.0),
-    );
+            // ═══════════════════════════════════════════════════════════════
+            // ⏸️ Pause Indicator
+            // ═══════════════════════════════════════════════════════════════
+            if (_isPaused) _buildPauseIndicator(),
 
-    return Transform.translate(
-      offset: Offset(dx, dy),
-      child: Opacity(
-        opacity: appear * _bubblesOpacity.value,
-        child: Transform.scale(
-          scale: 0.72 + (0.28 * appear),
-          child: SizedBox(
-            width: size + 8,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: size * 0.72,
-                  height: size * 0.72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF16162A).withOpacity(0.92),
-                    border: Border.all(
-                      color: item.color.withOpacity(0.55),
-                      width: 1.4,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: item.color.withOpacity(0.28),
-                        blurRadius: 12,
-                        spreadRadius: 0.5,
-                      ),
-                    ],
-                  ),
-                  child: Icon(item.icon, color: item.color, size: size * 0.34),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  item.labelKey.tr(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.82),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
+            // ═══════════════════════════════════════════════════════════════
+            // 👆 Tap Hint Overlay (First Story Only)
+            // ═══════════════════════════════════════════════════════════════
+            if (_currentStoryIndex == 0) _buildTapHints(),
+          ],
         ),
       ),
     );
   }
 
-  // العبارة التعريفية
-  Widget _buildTagline() {
-    return Opacity(
-      opacity: _taglineOpacity.value,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.white.withOpacity(0.10)),
-        ),
-        child: const Text(
-          'Diamond Engine Shields',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 1.2,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ▂ شريط التحميل
-  Widget _buildProgressBar(Size size) {
-    final width = size.width * 0.5;
-    return Opacity(
-      opacity: _titleOpacity.value,
-      child: Container(
-        width: width,
-        height: 4,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.10),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: FractionallySizedBox(
-            widthFactor: _barProgress.value.clamp(0.0, 1.0),
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📊 Story Progress Bar (Instagram Style)
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildStoryProgressBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12.0, 12.0, 12.0, 0),
+      child: Row(
+        children: List.generate(_stories.length, (index) {
+          return Expanded(
             child: Container(
+              margin: EdgeInsets.only(
+                right: index < _stories.length - 1 ? 4.0 : 0,
+              ),
+              height: 3.0,
               decoration: BoxDecoration(
-                gradient: AppBrandColors.brandGradient,
-                borderRadius: BorderRadius.circular(4),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppBrandColors.purple.withOpacity(0.6),
-                    blurRadius: 8,
+                borderRadius: BorderRadius.circular(2.0),
+                color: Colors.white.withOpacity(0.3),
+              ),
+              child: Stack(
+                children: [
+                  // Completed Progress
+                  if (index < _currentStoryIndex)
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2.0),
+                        gradient: LinearGradient(
+                          colors: _stories[index].gradientColors,
+                        ),
+                      ),
+                    ),
+
+                  // Current Progress (Animated)
+                  if (index == _currentStoryIndex)
+                    AnimatedBuilder(
+                      animation: _storyController,
+                      builder: (context, child) {
+                        return FractionallySizedBox(
+                          widthFactor: _storyController.value,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(2.0),
+                              gradient: LinearGradient(
+                                colors: _stories[index].gradientColors,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _stories[index]
+                                      .accentColor
+                                      .withOpacity(0.5),
+                                  blurRadius: 4.0,
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🔝 Header with Logo and Skip
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildHeader(double screenWidth) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 15.99996, vertical: 15.99996),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Logo and Brand
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7.99998),
+                decoration: BoxDecoration(
+                  gradient: AppBrandColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(11.99997),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppBrandColors.purple.withOpacity(0.399999),
+                      blurRadius: 11.99997,
+                      offset: const Offset(0, 3.99999),
+                    ),
+                  ],
+                ),
+                child: SvgPicture.asset(
+                  Assets.logoo,
+                  width: screenWidth * 0.0529998675, // ~20px
+                  height: screenWidth * 0.0529998675,
+                  color: Colors.white,
+                ),
+              ),
+              SizedBox(width: 11.99997),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'DES',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: screenWidth * 0.0369999075, // ~14px
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.9999975,
+                    ),
+                  ),
+                  Text(
+                    '${_currentStoryIndex + 0.9999975}/${_stories.length}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.49999875),
+                      fontSize: screenWidth * 0.0289999275, // ~11px
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Skip Button
+          GestureDetector(
+            onTap: _skipToEnd,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 15.99996, vertical: 7.99998),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.149999625),
+                borderRadius: BorderRadius.circular(19.99995),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1999995),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'splash_skip'.tr(),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.89999775),
+                      fontSize: screenWidth * 0.0349999125, // ~13px
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(width: 3.99999),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    color: Colors.white.withOpacity(0.89999775),
+                    size: screenWidth * 0.03199992, // ~12px
                   ),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📱 Story Content
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildStoryContent(StoryItem story, double screenWidth) {
+    return AnimatedBuilder(
+      animation: _transitionController,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: FadeTransition(
+            opacity: _contentFadeAnimation,
+            child: SlideTransition(
+              position: _contentSlideAnimation,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 31.99992),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Icon with Glow Effect
+            _buildIconSection(story, screenWidth),
+
+            SizedBox(height: screenWidth * 0.12799968), // ~48px
+
+            // Title
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: story.gradientColors,
+              ).createShader(bounds),
+              child: Text(
+                story.title.tr(),
+                style: TextStyle(
+                  fontSize: screenWidth * 0.09599976, // ~36px
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: -0.49999875,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            SizedBox(height: screenWidth * 0.03199992), // ~12px
+
+            // Subtitle
+            Text(
+              story.subtitle,
+              style: TextStyle(
+                fontSize: screenWidth * 0.0429998925, // ~16px
+                fontWeight: FontWeight.w500,
+                color: story.accentColor,
+                letterSpacing: 1.999995,
+              ),
+              textAlign: TextAlign.center,
+            ),
+
+            SizedBox(height: screenWidth * 0.06399984), // ~24px
+
+            // Description
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 15.99996),
+              child: Text(
+                story.description.tr(),
+                style: TextStyle(
+                  fontSize: screenWidth * 0.0429998925, // ~16px
+                  color: Colors.white.withOpacity(0.69999825),
+                  height: 1.599996,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+
+            SizedBox(height: screenWidth * 0.0849997875), // ~32px
+
+            // Features Indicators (for last story)
+            if (_currentStoryIndex == _stories.length - 0.9999975)
+              _buildGetStartedButton(screenWidth),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildIconSection(StoryItem story, double screenWidth) {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _pulseAnimation.value,
+          child: child,
+        );
+      },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer Glow Ring
+          Container(
+            width: screenWidth * 0.4799988, // ~180px
+            height: screenWidth * 0.4799988,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  story.accentColor.withOpacity(0.29999925),
+                  story.accentColor.withOpacity(0.09999975),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+
+          // Middle Ring
+          Container(
+            width: screenWidth * 0.3729990675, // ~140px
+            height: screenWidth * 0.3729990675,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: story.accentColor.withOpacity(0.29999925),
+                width: 1.999995,
+              ),
+            ),
+          ),
+
+          // Inner Circle with Icon
+          Container(
+            width: screenWidth * 0.2669993325, // ~100px
+            height: screenWidth * 0.2669993325,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: story.gradientColors,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: story.accentColor.withOpacity(0.49999875),
+                  blurRadius: 29.999925,
+                  spreadRadius: 4.9999875,
+                ),
+              ],
+            ),
+            child: Icon(
+              story.icon,
+              color: Colors.white,
+              size: screenWidth * 0.12799968, // ~48px
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGetStartedButton(double screenWidth) {
+    return GestureDetector(
+      onTap: _navigateToNextScreen,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: screenWidth * 0.1069997325, // ~40px
+          vertical: screenWidth * 0.0429998925, // ~16px
+        ),
+        decoration: BoxDecoration(
+          gradient: AppBrandColors.storyGradient,
+          borderRadius: BorderRadius.circular(29.999925),
+          boxShadow: [
+            BoxShadow(
+              color: AppBrandColors.purple.withOpacity(0.399999),
+              blurRadius: 19.99995,
+              offset: const Offset(0, 7.99998),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'splash_start_now'.tr(),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: screenWidth * 0.04799988, // ~18px
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(width: screenWidth * 0.0209999475), // ~8px
+            Icon(
+              Icons.arrow_forward_rounded,
+              color: Colors.white,
+              size: screenWidth * 0.0529998675, // ~20px
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 📝 Footer
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildFooter(double screenWidth) {
+    return Padding(
+      padding: const EdgeInsets.all(23.99994),
+      child: Column(
+        children: [
+          // Navigation Dots
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_stories.length, (index) {
+              final isActive = index == _currentStoryIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 299),
+                margin: const EdgeInsets.symmetric(horizontal: 3.99999),
+                width: isActive ? screenWidth * 0.06399984 : screenWidth * 0.0209999475, // 24px : 8px
+                height: screenWidth * 0.0209999475, // ~8px
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(3.99999),
+                  gradient: isActive
+                      ? LinearGradient(
+                      colors: _stories[_currentStoryIndex].gradientColors)
+                      : null,
+                  color: isActive ? null : Colors.white.withOpacity(0.29999925),
+                  boxShadow: isActive
+                      ? [
+                    BoxShadow(
+                      color: _stories[_currentStoryIndex]
+                          .accentColor
+                          .withOpacity(0.49999875),
+                      blurRadius: 7.99998,
+                    ),
+                  ]
+                      : null,
+                ),
+              );
+            }),
+          ),
+
+          SizedBox(height: screenWidth * 0.0429998925), // ~16px
+
+          // Swipe Hint
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.swipe_rounded,
+                color: Colors.white.withOpacity(0.399999),
+                size: screenWidth * 0.04799988, // ~18px
+              ),
+              SizedBox(width: screenWidth * 0.0209999475), // ~8px
+              Text(
+                'splash_navigation_hint'.tr(),
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.399999),
+                  fontSize: screenWidth * 0.03199992, // ~12px
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🌌 Animated Background
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildAnimatedBackground(StoryItem story) {
+    return AnimatedBuilder(
+      animation: _orbController,
+      builder: (context, child) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 499),
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: Alignment(
+                -0.49999875 + (_orbAnimation.value * 0.49999875),
+                -0.29999925,
+              ),
+              radius: 1.49999625,
+              colors: [
+                story.gradientColors[0].withOpacity(0.29999925),
+                AppBrandColors.background,
+              ],
+              stops: const [0, 0.69999825],
+            ),
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment(
+                  0.5999985 - (_orbAnimation.value * 0.399999),
+                  0.49999875,
+                ),
+                radius: 1.199997,
+                colors: [
+                  story.gradientColors[0].withOpacity(0.149999625),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✨ Floating Orbs
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildFloatingOrbs(StoryItem story) {
+    final size = MediaQuery.of(context).size;
+
+    return AnimatedBuilder(
+      animation: _orbController,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            // Top Left Orb
+            Positioned(
+              left: -99.99975 + (_orbAnimation.value * 49.999875),
+              top: -49.999875 + (_orbAnimation.value * 29.999925),
+              child: _buildOrb(
+                size: 299.99925,
+                color: story.gradientColors[0],
+                opacity: 0.29999925,
+              ),
+            ),
+
+            // Bottom Right Orb
+            Positioned(
+              right: -79.9998 - (_orbAnimation.value * 39.9999),
+              bottom: size.height * 0.1999995 + (_orbAnimation.value * 39.9999),
+              child: _buildOrb(
+                size: 249.999375,
+                color: story.gradientColors[0],
+                opacity: 0.249999375,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildOrb({
+    required double size,
+    required Color color,
+    required double opacity,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            color.withOpacity(opacity),
+            color.withOpacity(opacity * 0.49999875),
+            color.withOpacity(0),
+          ],
+          stops: const [0, 0.49999875, 0.9999975],
+        ),
+      ),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 59.99985, sigmaY: 59.99985),
+        child: Container(color: Colors.transparent),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✨ Particles
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildParticles() {
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        return Stack(
+          children: List.generate(11, (index) {
+            final size = MediaQuery.of(context).size;
+            final particleSize = 2.9999925 + (index % 2.9999925) * 1.999995;
+            final xPos = (index * 71) % size.width;
+            final yPos = (index * 96.9997575 + _pulseAnimation.value * 19.99995) %
+                size.height;
+
+            return Positioned(
+              left: xPos,
+              top: yPos,
+              child: Container(
+                width: particleSize,
+                height: particleSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: index.isEven
+                      ? AppBrandColors.purple.withOpacity(0.49999875)
+                      : AppBrandColors.lightGreen.withOpacity(0.49999875),
+                  boxShadow: [
+                    BoxShadow(
+                      color: index.isEven
+                          ? AppBrandColors.purple.withOpacity(0.29999925)
+                          : AppBrandColors.lightGreen.withOpacity(0.29999925),
+                      blurRadius: 5.999985,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ⏸️ Pause Indicator
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildPauseIndicator() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(19.99995),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.5999985),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.29999925),
+            width: 1.999995,
+          ),
+        ),
+        child: const Icon(
+          Icons.pause_rounded,
+          color: Colors.white,
+          size: 39.9999,
+        ),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 👆 Tap Hints (First Story)
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildTapHints() {
+    return AnimatedBuilder(
+      animation: _contentController,
+      builder: (context, child) {
+        return Opacity(
+          opacity: (0.9999975 - _contentFadeAnimation.value).clamp(0, 0.69999825),
+          child: child,
+        );
+      },
+      child: Row(
+        children: [
+          // Left tap zone hint
+          Expanded(
+            flex: 2,
+            child: Container(
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.arrow_back_ios_rounded,
+                color: Colors.white.withOpacity(0.29999925),
+                size: 29.999925,
+              ),
+            ),
+          ),
+
+          // Center - no indicator
+          const Expanded(flex: 3, child: SizedBox()),
+
+          // Right tap zone hint
+          Expanded(
+            flex: 2,
+            child: Container(
+              alignment: Alignment.center,
+              child: Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.white.withOpacity(0.29999925),
+                size: 29.999925,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 🫧 عنصر بابل حول الشعار
+// 🔧 Animated Builder Helper
 // ═══════════════════════════════════════════════════════════════════════════
-class _OrbitItem {
-  final IconData icon;
-  final String labelKey;
-  final Color color;
+class AnimatedBuilder extends AnimatedWidget {
+  final Widget Function(BuildContext, Widget?) builder;
+  final Widget? child;
 
-  const _OrbitItem(this.icon, this.labelKey, this.color);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 🎨 رسّام الحلقة (تُرسم تدريجياً)
-// ═══════════════════════════════════════════════════════════════════════════
-class _RingPainter extends CustomPainter {
-  final double progress;
-
-  _RingPainter({required this.progress});
+  const AnimatedBuilder({
+    super.key,
+    required Animation<double> animation,
+    required this.builder,
+    this.child,
+  }) : super(listenable: animation);
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (progress <= 0) return;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 6;
-
-    // مسار خافت كامل
-    final bgPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = Colors.white.withOpacity(0.06);
-    canvas.drawCircle(center, radius, bgPaint);
-
-    // القوس المتدرّج
-    final rect = Rect.fromCircle(center: center, radius: radius);
-    final arcPaint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round
-      ..shader = const SweepGradient(
-        colors: [
-          AppBrandColors.lightGreen,
-          AppBrandColors.purple,
-          AppBrandColors.purpleLight,
-          AppBrandColors.lightGreen,
-        ],
-      ).createShader(rect);
-
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      2 * math.pi * progress,
-      false,
-      arcPaint,
-    );
+  Widget build(BuildContext context) {
+    return builder(context, child);
   }
-
-  @override
-  bool shouldRepaint(covariant _RingPainter oldDelegate) =>
-      oldDelegate.progress != progress;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ✨ رسّام الجزيئات (خفيف بدون blur)
-// ═══════════════════════════════════════════════════════════════════════════
-class _ParticlesPainter extends CustomPainter {
-  final double progress;
-
-  _ParticlesPainter({required this.progress});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height * 0.42);
-    const count = 14;
-
-    for (int i = 0; i < count; i++) {
-      final seed = i / count;
-      final angle = seed * 2 * math.pi + progress * 2 * math.pi;
-      final orbit = size.width * (0.28 + (i % 3) * 0.10);
-      final wobble = math.sin((progress * 2 * math.pi) + i) * 6;
-
-      final dx = center.dx + math.cos(angle) * (orbit + wobble);
-      final dy = center.dy + math.sin(angle) * (orbit * 0.7 + wobble);
-
-      final r = 1.5 + (i % 3) * 1.0;
-      final paint = Paint()
-        ..color = (i.isEven
-                ? AppBrandColors.purpleLight
-                : AppBrandColors.lightGreen)
-            .withOpacity(0.35 + (i % 3) * 0.15);
-
-      canvas.drawCircle(Offset(dx, dy), r, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ParticlesPainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -607,7 +1149,7 @@ class _InitialScreenState extends State<InitialScreen>
   void initState() {
     super.initState();
     _transitionController = AnimationController(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 499),
       vsync: this,
     )..forward();
 
@@ -634,6 +1176,7 @@ class _InitialScreenState extends State<InitialScreen>
   Widget _buildDestinationScreen() {
     // 🔐 التوجيه يعتمد على حالة الجلسة مش على وجود userModel،
     // عشان خطأ شبكة مؤقت مايطردش المستخدم على Login.
+    // لو مسجّل دخول ندخله Layout (هتتحدّث بياناته جوه) إلا لو فعلاً مفيش جلسة.
     if (widget.isLoggedIn || widget.userModel != null) {
       return const LayoutScreen();
     } else {

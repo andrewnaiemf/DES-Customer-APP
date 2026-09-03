@@ -6,6 +6,7 @@ import 'package:app/data/constants/api_constants.dart';
 import 'package:app/helpers/cache_helper.dart';
 import 'package:app/functions/functions.dart';
 import 'package:app/functions/my_navigation.dart';
+import 'package:app/models/account_agreement_template.dart';
 import 'package:app/models/user/CheckPhoneModel.dart';
 import 'package:app/models/user/user_model.dart';
 import 'package:app/network/dio_helper.dart';
@@ -130,6 +131,7 @@ class AuthServices {
     required String city,
     required String postalCode,
     String? additionalNumber,
+    String? country,
     required String signerName,
     required String signerTitle,
   }) async {
@@ -158,6 +160,7 @@ class AuthServices {
           'postal_code': postalCode,
           if (additionalNumber != null && additionalNumber.trim().isNotEmpty)
             'additional_number': additionalNumber.trim(),
+          if (country != null && country.trim().isNotEmpty) 'country': country.trim(),
           'signer_name': signerName,
           'signer_title': signerTitle,
           'locale': CacheHelper.getString(key: 'lang') ?? 'ar',
@@ -242,6 +245,29 @@ class AuthServices {
       return null;
     } catch (e) {
       log('previewAgreementPdf error: $e');
+      return null;
+    }
+  }
+
+  Future<AccountAgreementTemplateModel?> getRegisterAgreement({
+    String locale = 'ar',
+  }) async {
+    try {
+      DioHelper.init();
+      final response = await DioHelper.get(
+        path: EndPoints.registerAgreement,
+        queryParameters: {'locale': locale},
+      );
+      final data = _asMap(response.data);
+      if (!_isSuccess(data, response.statusCode)) {
+        return null;
+      }
+      final payload = data['data'] is Map
+          ? Map<String, dynamic>.from(data['data'] as Map)
+          : data;
+      return AccountAgreementTemplateModel.fromJson(payload);
+    } catch (e) {
+      log('getRegisterAgreement error: $e');
       return null;
     }
   }

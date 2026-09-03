@@ -1,0 +1,28 @@
+{
+  "buildFiles": [
+    "/Users/omnianeil/flutter/packages/flutter_tools/gradle/src/main/groovy/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/omnianeil/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/omnianeil/Documents/cods/last/Driveshield-app-main-3/android/app/.cxx/RelWithDebInfo/3to38t6p/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/omnianeil/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/omnianeil/Documents/cods/last/Driveshield-app-main-3/android/app/.cxx/RelWithDebInfo/3to38t6p/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {},
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/Users/omnianeil/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang.lld",
+      "cppCompilerExecutable": "/Users/omnianeil/Library/Android/sdk/ndk/26.3.11579264/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++.lld"
+    }
+  },
+  "cFileExtensions": [],
+  "cppFileExtensions": []
+}
