@@ -69,10 +69,34 @@ workflows:
 
       - name: Set up code signing with Codemagic
         script: |
-          set -e
-          # Use Codemagic automatic code signing
-          # This uses certificates and profiles already configured in Codemagic UI
-          echo "Using Codemagic automatic code signing"
+          set -euo pipefail
+          keychain initialize
+          
+          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Missing KEY_IDENTIFIER}"
+          : "${APP_STORE_CONNECT_ISSUER_ID:?Missing ISSUER_ID}"
+          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Missing PRIVATE_KEY}"
+          
+          echo "Fetching provisioning profiles and certificates..."
+          
+          # Fetch signing files for main app
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --private-key @env:APP_STORE_CONNECT_PRIVATE_KEY
+          
+          # Fetch signing files for widget
+          app-store-connect fetch-signing-files "$WIDGET_BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
+            --private-key @env:APP_STORE_CONNECT_PRIVATE_KEY
+          
+          # Add certificates to keychain
+          keychain add-certificates
+          
+          # Apply profiles
+          xcode-project use-profiles
 
       - name: Build IPA
         script: |
