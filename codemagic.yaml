@@ -67,45 +67,49 @@ workflows:
           fi
           pod install --verbose
 
-      - name: Set up code signing with Codemagic
+      - name: Set up keychain
+        script: |
+          keychain initialize
+
+      - name: Fetch signing files for app + Live Activity widget
         script: |
           set -euo pipefail
-          keychain initialize
-          
-          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Missing KEY_IDENTIFIER}"
-          : "${APP_STORE_CONNECT_ISSUER_ID:?Missing ISSUER_ID}"
-          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Missing PRIVATE_KEY}"
-          
-          echo "Fetching provisioning profiles and certificates..."
-          
-          # Fetch signing files for main app
+          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Missing APP_STORE_CONNECT_KEY_IDENTIFIER}"
+          : "${APP_STORE_CONNECT_ISSUER_ID:?Missing APP_STORE_CONNECT_ISSUER_ID}"
+          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Missing APP_STORE_CONNECT_PRIVATE_KEY}"
+          : "${CERTIFICATE_PRIVATE_KEY:?Missing CERTIFICATE_PRIVATE_KEY}"
+
+          echo "Using ASC key: $APP_STORE_CONNECT_KEY_IDENTIFIER"
+
+          ASC_ARGS=(
+            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER"
+            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID"
+            --private-key @env:APP_STORE_CONNECT_PRIVATE_KEY
+            --certificate-key @env:CERTIFICATE_PRIVATE_KEY
+          )
+
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
-            --private-key @env:APP_STORE_CONNECT_PRIVATE_KEY
-          
-          # Fetch signing files for widget
+            --create \
+            "${ASC_ARGS[@]}"
           app-store-connect fetch-signing-files "$WIDGET_BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID" \
-            --private-key @env:APP_STORE_CONNECT_PRIVATE_KEY
-          
-          # Add certificates to keychain
-          keychain add-certificates
-          
-          # Apply profiles
-          xcode-project use-profiles
+            --create \
+            "${ASC_ARGS[@]}"
+
+      - name: Add certificates to keychain
+        script: keychain add-certificates
+
+      - name: Apply provisioning profiles to Xcode project
+        script: xcode-project use-profiles
 
       - name: Build IPA
         script: |
           set -e
           IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-$(($(date +%s)))}"
           IOS_BUILD_NAME="${IOS_BUILD_NAME:-1.4.8}"
-          
-          # Use automatic signing
           flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist \
             --build-name="$IOS_BUILD_NAME" \
             --build-number="$IOS_BUILD_NUMBER"
 
