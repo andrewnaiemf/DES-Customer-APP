@@ -67,45 +67,21 @@ workflows:
           fi
           pod install --verbose
 
-      - name: Set up keychain
+      - name: Set up code signing with Codemagic
         script: |
-          keychain initialize
-
-      - name: Fetch signing files for app + Live Activity widget
-        script: |
-          set -euo pipefail
-          : "${APP_STORE_CONNECT_KEY_IDENTIFIER:?Missing APP_STORE_CONNECT_KEY_IDENTIFIER}"
-          : "${APP_STORE_CONNECT_ISSUER_ID:?Missing APP_STORE_CONNECT_ISSUER_ID}"
-          : "${APP_STORE_CONNECT_PRIVATE_KEY:?Missing APP_STORE_CONNECT_PRIVATE_KEY}"
-
-          echo "Using ASC key: $APP_STORE_CONNECT_KEY_IDENTIFIER"
-
-          ASC_ARGS=(
-            --key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER"
-            --issuer-id "$APP_STORE_CONNECT_ISSUER_ID"
-            --private-key @env:APP_STORE_CONNECT_PRIVATE_KEY
-          )
-
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            "${ASC_ARGS[@]}"
-          app-store-connect fetch-signing-files "$WIDGET_BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            "${ASC_ARGS[@]}"
-
-      - name: Add certificates to keychain
-        script: keychain add-certificates
-
-      - name: Apply provisioning profiles to Xcode project
-        script: xcode-project use-profiles
+          set -e
+          # Use Codemagic automatic code signing
+          # This uses certificates and profiles already configured in Codemagic UI
+          echo "Using Codemagic automatic code signing"
 
       - name: Build IPA
         script: |
           set -e
           IOS_BUILD_NUMBER="${IOS_BUILD_NUMBER:-$(($(date +%s)))}"
           IOS_BUILD_NAME="${IOS_BUILD_NAME:-1.4.8}"
+          
+          # Use automatic signing
           flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist \
             --build-name="$IOS_BUILD_NAME" \
             --build-number="$IOS_BUILD_NUMBER"
 
