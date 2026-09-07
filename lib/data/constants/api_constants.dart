@@ -7,19 +7,18 @@ class Constants {
 }
 
 class ApiConstants {
-  // 🧪 DEV (TestFlight / Codemagic ios-dev)
-  // Server path: /var/www/html/retail_dev
-  // Domains: https://dev.destrading.online  (and alias https://dev.driveshield.net)
-  static const baseURL = 'https://dev.destrading.online';
-  static const baseURL2 = 'https://dev.destrading.online/api/';
-  static const stoarge = 'https://dev.destrading.online/storage/';
-  static const warrantyBaseURL = 'https://dev.destrading.online';
+  // 🌐 Production (TestFlight / App Store)
+  // Server path: /var/www/html/retail
+  static const baseURL = 'https://destrading.online';
+  static const baseURL2 = 'https://destrading.online/api/';
+  static const stoarge = 'https://destrading.online/storage/';
+  static const warrantyBaseURL = 'https://destrading.online';
 
-  // 🌐 Production:
-  // static const baseURL = 'https://driveshield.net';
-  // static const baseURL2 = 'https://driveshield.net/api/';
-  // static const stoarge = 'https://driveshield.net/storage/';
-  // static const warrantyBaseURL = 'https://driveshield.net';
+  // 🧪 DEV:
+  // static const baseURL = 'https://dev.destrading.online';
+  // static const baseURL2 = 'https://dev.destrading.online/api/';
+  // static const stoarge = 'https://dev.destrading.online/storage/';
+  // static const warrantyBaseURL = 'https://dev.destrading.online';
 
   // 🖥️ Local backend (/var/www/html/retail):
   // static const baseURL = 'http://localhost:8000';
