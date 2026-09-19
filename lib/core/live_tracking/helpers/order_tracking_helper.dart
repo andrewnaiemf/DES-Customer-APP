@@ -6,6 +6,7 @@
 // Path: lib/core/live_tracking/helpers/order_tracking_helper.dart
 // ═══════════════════════════════════════════════════════════════════════════
 
+import 'dart:convert';
 import 'dart:developer';
 
 import '../models/order_tracking_model.dart';
@@ -157,20 +158,24 @@ class OrderTrackingHelper {
       log('[TrackingHelper] 🔔 Handling FCM notification');
       log('[TrackingHelper] 📦 Data: $data');
 
+      final payload = _flattenNotificationData(data);
+
       // استخراج البيانات - مع دعم أسماء متعددة للحقول
-      final orderId = _extractString(data, [
-        'order_id', 'orderId', 'id', 
-        'order', 'orderid', 'ORDER_ID'
+      final orderId = _extractString(payload, [
+        'order_id', 'orderId', 'id',
+        'orderid', 'ORDER_ID'
       ]);
       
-      final orderRef = _extractString(data, [
+      final orderRef = _extractString(payload, [
         'order_reference', 'orderReference', 'reference', 'ref',
         'order_ref', 'orderRef', 'order_number', 'orderNumber'
       ]);
-      
-      final status = _extractString(data, [
-        'shipping_status', 'shippingStatus', 'status',
-        'order_status', 'orderStatus', 'delivery_status'
+
+      // Backend sends the shipping/event step in `screen`.
+      // Top-level `status` is orders.status (Approved) and must not win.
+      final status = _extractString(payload, [
+        'shipping_status', 'shippingStatus', 'screen',
+        'delivery_status', 'order_status', 'orderStatus', 'status',
       ]);
 
       log('[TrackingHelper] 📋 Extracted - OrderID: $orderId, Ref: $orderRef, Status: $status');
@@ -325,6 +330,33 @@ class OrderTrackingHelper {
       if (value != null && value.toString().isNotEmpty) {
         return value.toString();
       }
+    }
+    return null;
+  }
+
+  static Map<String, dynamic> _flattenNotificationData(Map<String, dynamic> data) {
+    final merged = Map<String, dynamic>.from(data);
+    for (final key in ['notification_data', 'order']) {
+      final parsed = _asMap(merged[key]);
+      if (parsed == null) continue;
+      parsed.forEach((nestedKey, nestedValue) {
+        merged.putIfAbsent(nestedKey, () => nestedValue);
+      });
+    }
+    return merged;
+  }
+
+  static Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
+    if (value is String && value.trim().startsWith('{')) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is Map) {
+          return Map<String, dynamic>.from(decoded);
+        }
+      } catch (_) {}
     }
     return null;
   }

@@ -10,14 +10,20 @@ import 'package:app/persentation/screens/notifications/notifications_screen.dart
 import 'package:app/persentation/screens/profile/branches_screen.dart';
 import 'package:app/persentation/screens/profile/profile_details_screen.dart';
 import 'package:app/persentation/screens/profile/settings_screen.dart';
+import 'package:app/network/services/profile_service.dart';
+import 'package:app/functions/download_bytes.dart';
 import 'package:app/persentation/widgets/my_scaffold.dart';
 import 'package:app/persentation/widgets/directional_arrow.dart';
 import 'package:app/theme/colors.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'dart:math' as math;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -113,6 +119,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  bool _downloadingAgreement = false;
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   bool get _isRTL => context.locale.languageCode == 'ar';
@@ -634,6 +641,16 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
             _buildMenuDivider(),
             _ProfileMenuItem(
+              icon: Icons.description_outlined,
+              title: 'Download agreement'.tr(),
+              subtitle: 'Download your account agreement'.tr(),
+              iconColor: AppTheme.blue,
+              isDark: _isDark,
+              isRTL: _isRTL,
+              onTap: _downloadAgreement,
+            ),
+            _buildMenuDivider(),
+            _ProfileMenuItem(
               icon: Icons.business_rounded,
               title: 'Branches'.tr(),
               subtitle: 'Manage your branches'.tr(),
@@ -722,6 +739,36 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _downloadAgreement() async {
+    if (_downloadingAgreement) return;
+    HapticFeedback.lightImpact();
+    setState(() => _downloadingAgreement = true);
+    try {
+      final bytes = await ProfileServices.fetchAccountAgreementPdf();
+      if (!mounted) return;
+      if (bytes == null || bytes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('agreement_download_failed'.tr())),
+        );
+        return;
+      }
+      if (kIsWeb) {
+        await downloadBytes(bytes, 'DES-account-agreement.pdf', 'application/pdf');
+      } else {
+        final dir = await getTemporaryDirectory();
+        final path = '${dir.path}/DES-account-agreement.pdf';
+        await File(path).writeAsBytes(bytes);
+        await OpenFile.open(path);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('agreement_downloaded'.tr())),
+      );
+    } finally {
+      if (mounted) setState(() => _downloadingAgreement = false);
+    }
   }
 
   void _showLogoutDialog() {

@@ -374,6 +374,7 @@ enum OrderTrackingStatus {
         // Confirmed aliases
         case 'approved':
         case 'accepted':
+        case 'received':
           return confirmed;
           
         // Preparing aliases

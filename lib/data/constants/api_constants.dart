@@ -41,6 +41,7 @@ class EndPoints {
   static const me = '/api/user/me';
   static const forgetPassword = '/api/user/forget-password';
   static const profile = '/api/user/me';
+  static const accountAgreement = '/api/user/agreement';
   static const orders = '/api/user/orders';
   static const products = '/api/user/products';
   static const invoices = '/api/user/invoices';

@@ -1,12 +1,19 @@
+import 'dart:io';
+
 import 'package:app/core/responsive/responsive.dart';
 import 'package:app/business_logic/profile/cubit/profile_cubit.dart';
+import 'package:app/functions/download_bytes.dart';
 import 'package:app/helpers/my_navigation.dart';
 import 'package:app/models/user/user_model.dart';
+import 'package:app/network/services/profile_service.dart';
 import 'package:app/persentation/widgets/directional_arrow.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:open_file/open_file.dart';
+import 'package:path_provider/path_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🎨 App Theme Constants
@@ -59,6 +66,7 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
+  bool _downloadingAgreement = false;
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
 
@@ -376,9 +384,115 @@ class _ProfileDetailsScreenState extends State<ProfileDetailsScreen>
               ),
             ],
           ),
+
+          SizedBox(height: ResponsiveUtils.spacing(context, 16)),
+          _buildAgreementDownload(),
         ],
       ),
     );
+  }
+
+  Widget _buildAgreementDownload() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _downloadingAgreement ? null : _downloadAgreement,
+        borderRadius: BorderRadius.circular(ResponsiveUtils.radius(context, 20)),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(ResponsiveUtils.spacing(context, 16)),
+          decoration: BoxDecoration(
+            color: AppTheme.getCard(_isDark),
+            borderRadius: BorderRadius.circular(ResponsiveUtils.radius(context, 20)),
+            border: Border.all(color: AppTheme.getBorder(_isDark)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: ResponsiveUtils.size(context, 40),
+                height: ResponsiveUtils.size(context, 40),
+                decoration: BoxDecoration(
+                  color: AppTheme.blue.withOpacity(_isDark ? 0.15 : 0.1),
+                  borderRadius: BorderRadius.circular(ResponsiveUtils.radius(context, 12)),
+                ),
+                child: _downloadingAgreement
+                    ? Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppTheme.blue,
+                        ),
+                      )
+                    : Icon(
+                        Icons.description_outlined,
+                        color: AppTheme.blue,
+                        size: ResponsiveUtils.icon(context, 20),
+                      ),
+              ),
+              SizedBox(width: ResponsiveUtils.spacing(context, 14)),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Download agreement'.tr(),
+                      style: TextStyle(
+                        fontSize: ResponsiveUtils.font(context, 15),
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.getText(_isDark),
+                      ),
+                    ),
+                    SizedBox(height: ResponsiveUtils.spacing(context, 4)),
+                    Text(
+                      'Download your account agreement'.tr(),
+                      style: TextStyle(
+                        fontSize: ResponsiveUtils.font(context, 12),
+                        color: AppTheme.getTextSecondary(_isDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.download_rounded,
+                color: AppTheme.getTextSecondary(_isDark),
+                size: ResponsiveUtils.icon(context, 20),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadAgreement() async {
+    if (_downloadingAgreement) return;
+    HapticFeedback.lightImpact();
+    setState(() => _downloadingAgreement = true);
+    try {
+      final bytes = await ProfileServices.fetchAccountAgreementPdf();
+      if (!mounted) return;
+      if (bytes == null || bytes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('agreement_download_failed'.tr())),
+        );
+        return;
+      }
+      if (kIsWeb) {
+        await downloadBytes(bytes, 'DES-account-agreement.pdf', 'application/pdf');
+      } else {
+        final dir = await getTemporaryDirectory();
+        final path = '${dir.path}/DES-account-agreement.pdf';
+        await File(path).writeAsBytes(bytes);
+        await OpenFile.open(path);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('agreement_downloaded'.tr())),
+      );
+    } finally {
+      if (mounted) setState(() => _downloadingAgreement = false);
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────

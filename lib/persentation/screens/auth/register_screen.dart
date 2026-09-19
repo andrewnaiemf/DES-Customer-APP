@@ -3,11 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:app/business_logic/auth/CheckPhoneCubit/check_phone_cubit.dart';
-import 'package:app/models/account_agreement_template.dart';
-import 'package:app/data/constants/account_agreement.dart';
-import 'package:app/functions/account_agreement_pdf.dart';
 import 'package:app/functions/country_code_sheet.dart' show showCountryCodeBottomSheet;
-import 'package:app/functions/download_bytes.dart';
 import 'package:app/models/country_code.dart';
 import 'package:app/network/services/auth_services.dart';
 import 'package:app/persentation/screens/auth/login_screen.dart' show LoginScreen;
@@ -20,9 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
-import 'package:share_plus/share_plus.dart';
 
 class _RegColors {
   static const Color dark = Color(0xFF081428);
@@ -48,10 +42,10 @@ class _RegColors {
       );
 }
 
-enum _RegStep { form, otp, agreement, sign }
+enum _RegStep { form, otp, sign }
 
 /// Professional multi-step customer registration:
-/// form → SMS OTP → account agreement → signature/stamp → submit.
+/// form → SMS OTP → signature/stamp → submit.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -82,18 +76,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _signPadKey = GlobalKey<RegisterSignaturePadState>();
 
   bool _vatRegistered = false;
-  bool _acceptedTerms = false;
   bool _sendingOtp = false;
   bool _verifyingOtp = false;
-  bool _downloadingPdf = false;
   _RegStep _step = _RegStep.form;
   bool _obscurePassword = true;
   bool _obscurePasswordConfirm = true;
   String _otpInput = '';
   List<int>? _signatureBytes;
   PlatformFile? _stampFile;
-  AccountAgreementTemplateModel? _agreementTemplate;
-  bool _loadingAgreement = false;
 
   PlatformFile? _commercialRegFile;
   PlatformFile? _taxFile;
@@ -210,39 +200,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     await _sendOtp();
   }
 
-  Future<void> _loadAgreementAfterOtp() async {
-    setState(() => _loadingAgreement = true);
-    final template = await AuthServices().getRegisterAgreement(
-      locale: context.locale.languageCode,
-    );
-    if (!mounted) return;
-    setState(() {
-      _agreementTemplate = template;
-      _loadingAgreement = false;
-      _step = _RegStep.agreement;
-    });
-    if (template == null) {
-      _toast('reg_agreement_load_failed'.tr());
-    }
-  }
-
-  AccountAgreementData _buildAgreementData() {
-    return AccountAgreementData.fromForm(
-      companyName: _companyCtrl.text,
-      crNumber: _crCtrl.text,
-      buildingNumber: _buildingCtrl.text,
-      street: _streetCtrl.text,
-      district: _districtCtrl.text,
-      city: _cityCtrl.text,
-      postalCode: _postalCtrl.text,
-      signerName: _signerNameCtrl.text.isEmpty
-          ? _managerCtrl.text
-          : _signerNameCtrl.text,
-      signerTitle: _signerTitleCtrl.text,
-      template: _agreementTemplate,
-    );
-  }
-
   Future<void> _sendOtp() async {
     if (_sendingOtp || _verifyingOtp) return;
     setState(() => _sendingOtp = true);
@@ -281,7 +238,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _verifyOtp() async {
-    if (_verifyingOtp || _sendingOtp || _loadingAgreement) return;
+    if (_verifyingOtp || _sendingOtp) return;
     if (_otpInput.length < 6) {
       _toast('reg_otp_incomplete'.tr());
       return;
@@ -302,7 +259,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
 
       HapticFeedback.mediumImpact();
-      await _loadAgreementAfterOtp();
+      setState(() => _step = _RegStep.sign);
     } catch (e) {
       if (!mounted) return;
       _toast(e.toString());
@@ -446,7 +403,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: switch (_step) {
                     _RegStep.form => _buildFormStep(),
                     _RegStep.otp => _buildOtpStep(),
-                    _RegStep.agreement => _buildAgreementStep(),
                     _RegStep.sign => _buildSignStep(),
                   },
                 ),
@@ -466,8 +422,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           IconButton(
             onPressed: () {
               if (_step == _RegStep.sign) {
-                setState(() => _step = _RegStep.agreement);
-              } else if (_step == _RegStep.agreement) {
                 setState(() => _step = _RegStep.otp);
               } else if (_step == _RegStep.otp) {
                 setState(() => _step = _RegStep.form);
@@ -489,7 +443,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text(
                   switch (_step) {
                     _RegStep.otp => 'reg_otp_title'.tr(),
-                    _RegStep.agreement => 'reg_agreement_title'.tr(),
                     _RegStep.sign => 'reg_sign_title'.tr(),
                     _RegStep.form => 'reg_screen_title'.tr(),
                   },
@@ -503,7 +456,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text(
                   switch (_step) {
                     _RegStep.otp => 'reg_otp_subtitle'.tr(),
-                    _RegStep.agreement => 'reg_agreement_subtitle'.tr(),
                     _RegStep.sign => 'reg_sign_subtitle'.tr(),
                     _RegStep.form => 'reg_screen_subtitle'.tr(),
                   },
@@ -773,175 +725,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildAgreementStep() {
-    if (_loadingAgreement) {
-      return const Center(
-        key: ValueKey('register-agreement-loading'),
-        child: CircularProgressIndicator(color: _RegColors.purple),
-      );
-    }
-
-    final data = _buildAgreementData();
-
-    return ListView(
-      key: const ValueKey('register-agreement'),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-      children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(18, 20, 18, 22),
-          decoration: BoxDecoration(
-            color: _isDark ? _RegColors.cardDark : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: _isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : const Color(0xFFE8E4F8),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: _RegColors.purple.withValues(alpha: _isDark ? 0.12 : 0.08),
-                blurRadius: 22,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                data.title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'GraphikArabic',
-                  fontSize: 20,
-                  height: 1.35,
-                  fontWeight: FontWeight.w800,
-                  color: _isDark ? Colors.white : _RegColors.dark,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Container(
-                  width: 72,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    gradient: _RegColors.primaryGradient,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(data.intro, style: _agreementBodyStyle()),
-              const SizedBox(height: 12),
-              _agreementPartyCard(data.partyOne),
-              const SizedBox(height: 10),
-              _agreementPartyCard(data.partyTwo),
-              const SizedBox(height: 12),
-              Text(
-                'وقد اتفق الطرفان، وهما بكامل أهليتهما الشرعية والنظامية، على ما يلي:',
-                style: _agreementBodyStyle(weight: FontWeight.w600),
-              ),
-              for (final clause in data.clauses) ...[
-                const SizedBox(height: 14),
-                Text(
-                  clause['title']!,
-                  style: TextStyle(
-                    fontFamily: 'GraphikArabic',
-                    fontSize: 14.5,
-                    height: 1.45,
-                    fontWeight: FontWeight.w800,
-                    color: _RegColors.purple,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(clause['body']!, style: _agreementBodyStyle()),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            setState(() => _acceptedTerms = !_acceptedTerms);
-          },
-          borderRadius: BorderRadius.circular(14),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            decoration: BoxDecoration(
-              color: _isDark ? _RegColors.cardDark : Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: _acceptedTerms
-                    ? _RegColors.purple
-                    : (_isDark ? Colors.white12 : const Color(0xFFE8EAF0)),
-              ),
-            ),
-            child: Row(
-              children: [
-                Checkbox(
-                  value: _acceptedTerms,
-                  activeColor: _RegColors.purple,
-                  onChanged: (v) {
-                    setState(() => _acceptedTerms = v ?? false);
-                  },
-                ),
-                Expanded(
-                  child: Text(
-                    'reg_read_terms'.tr(),
-                    style: TextStyle(
-                      fontFamily: 'GraphikArabic',
-                      fontSize: 14.5,
-                      fontWeight: FontWeight.w700,
-                      color: _isDark ? Colors.white : _RegColors.dark,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _primaryButton(
-          label: 'reg_accept_agreement'.tr(),
-          onTap: () {
-            if (!_acceptedTerms) {
-              _toast('reg_terms_required'.tr());
-              return;
-            }
-            HapticFeedback.mediumImpact();
-            setState(() => _step = _RegStep.sign);
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _agreementPartyCard(String text) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: _isDark
-            ? Colors.white.withValues(alpha: 0.04)
-            : const Color(0xFFF7F5FF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(text, style: _agreementBodyStyle()),
-    );
-  }
-
-  TextStyle _agreementBodyStyle({FontWeight weight = FontWeight.w500}) {
-    return TextStyle(
-      fontFamily: 'GraphikArabic',
-      fontSize: 13.4,
-      height: 1.85,
-      fontWeight: weight,
-      color: _isDark ? Colors.white70 : const Color(0xFF2A2D3A),
-    );
-  }
-
   Widget _buildSignStep() {
     return ListView(
       key: const ValueKey('register-sign'),
@@ -1010,12 +793,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ],
         const SizedBox(height: 22),
-        _primaryButton(
-          label: 'reg_download_agreement'.tr(),
-          loading: _downloadingPdf,
-          onTap: _downloadAgreementPdf,
-        ),
-        const SizedBox(height: 12),
         _primaryButton(
           label: 'reg_submit'.tr(),
           loading: _verifyingOtp,
@@ -1222,56 +999,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     await _submitRegistration();
   }
 
-  Future<void> _downloadAgreementPdf() async {
-    if (_downloadingPdf) return;
-    if (_signerNameCtrl.text.trim().isEmpty) {
-      _toast('reg_field_required'.tr());
-      return;
-    }
-    if (_signerTitleCtrl.text.trim().isEmpty) {
-      _toast('reg_title_required'.tr());
-      return;
-    }
-    if (_stampFile == null) {
-      _toast('reg_stamp_required'.tr());
-      return;
-    }
-    if (!await _captureSignature()) return;
-
-    setState(() => _downloadingPdf = true);
-    try {
-      final stampBytes = _stampFile?.bytes;
-      if (stampBytes == null || stampBytes.isEmpty) {
-        _toast('reg_stamp_required'.tr());
-        return;
-      }
-      final data = _buildAgreementData();
-      final bytes = await AccountAgreementPdf.build(
-        data: data,
-        signatureBytes: _signatureBytes!,
-        stampBytes: stampBytes,
-      );
-      if (!mounted) return;
-      final file = XFile.fromData(
-        bytes,
-        mimeType: 'application/pdf',
-        name: 'DES-account-agreement.pdf',
-      );
-      if (kIsWeb) {
-        await downloadBytes(bytes, 'DES-account-agreement.pdf', 'application/pdf');
-      } else {
-        final dir = await getTemporaryDirectory();
-        final path = '${dir.path}/DES-account-agreement.pdf';
-        await file.saveTo(path);
-        await Share.shareXFiles([XFile(path)]);
-      }
-    } catch (e) {
-      log('download agreement pdf: $e');
-      if (mounted) _toast('reg_pdf_failed'.tr());
-    } finally {
-      if (mounted) setState(() => _downloadingPdf = false);
-    }
-  }
 
   Widget _buildOtpStep() {
     return ListView(

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:typed_data';
 
 import 'package:app/data/constants/api_constants.dart';
 import 'package:app/helpers/cache_helper.dart';
@@ -152,5 +153,23 @@ class ProfileServices {
       log('$e');
     }
     return null;
+  }
+
+  static Future<Uint8List?> fetchAccountAgreementPdf() async {
+    try {
+      DioHelper.init();
+      final response = await DioHelper.get(
+        path: EndPoints.accountAgreement,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (response.statusCode != 200) return null;
+      final data = response.data;
+      if (data is Uint8List) return data;
+      if (data is List<int>) return Uint8List.fromList(data);
+      return null;
+    } catch (e) {
+      log('fetchAccountAgreementPdf: $e');
+      return null;
+    }
   }
 }
