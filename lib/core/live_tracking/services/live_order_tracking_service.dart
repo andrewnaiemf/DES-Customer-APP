@@ -463,9 +463,13 @@ class LiveOrderTrackingService {
 
       _stopPolling();
 
-      // ✅ إنهاء Live Activity فقط إذا forceEnd أو cancelled
-      final shouldEndActivity = forceEnd || 
-                                (current?.status.isCancelled ?? false);
+      // ✅ إنهاء Live Activity عند الاستبدال أو الإلغاء.
+      // silent stop بدون forceEnd كان يمسح activityIds ويسيب الـ Live Activity
+      // القديمة ظاهرة على "تم تأكيد الطلب" بدون تحديث.
+      final shouldEndActivity = forceEnd ||
+                                silent ||
+                                (current?.status.isCancelled ?? false) ||
+                                (current?.status == OrderTrackingStatus.delivered);
       
       if (shouldEndActivity) {
         if (Platform.isIOS) {

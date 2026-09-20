@@ -171,12 +171,9 @@ class OrderTrackingHelper {
         'order_ref', 'orderRef', 'order_number', 'orderNumber'
       ]);
 
-      // Backend sends the shipping/event step in `screen`.
-      // Top-level `status` is orders.status (Approved) and must not win.
-      final status = _extractString(payload, [
-        'shipping_status', 'shippingStatus', 'screen',
-        'delivery_status', 'order_status', 'orderStatus', 'status',
-      ]);
+      // Prefer `screen` (event step). Top-level shipping_status was often
+      // wrongly set to orders.status (Approved) which freezes on confirmed.
+      final status = _extractShippingStep(payload);
 
       log('[TrackingHelper] 📋 Extracted - OrderID: $orderId, Ref: $orderRef, Status: $status');
 
@@ -191,22 +188,22 @@ class OrderTrackingHelper {
       }
 
       // استخراج البيانات الإضافية
-      final driverName = _extractString(data, [
+      final driverName = _extractString(payload, [
         'driver_name', 'driverName', 'driver',
         'courier_name', 'courierName'
       ]);
       
-      final driverPhone = _extractString(data, [
+      final driverPhone = _extractString(payload, [
         'driver_phone', 'driverPhone',
         'courier_phone', 'courierPhone'
       ]);
       
-      final estimatedTime = _extractString(data, [
+      final estimatedTime = _extractString(payload, [
         'estimated_delivery', 'estimatedDelivery', 'eta',
         'delivery_time', 'deliveryTime', 'estimated_time'
       ]);
       
-      final address = _extractString(data, [
+      final address = _extractString(payload, [
         'delivery_address', 'deliveryAddress', 'address',
         'location', 'delivery_location'
       ]);
@@ -224,20 +221,32 @@ class OrderTrackingHelper {
         return;
       }
 
-      // ✅ FIX: التحقق من نفس الطلب تحديداً لمنع التكرار
+      // Match by numeric id OR reference (FCM sometimes sends one then the other)
       final existingTracking = _service.currentTracking;
-      final isSameOrder = existingTracking != null && existingTracking.orderId == finalOrderId;
+      final isSameOrder = existingTracking != null && (
+        existingTracking.orderId == finalOrderId ||
+        existingTracking.orderReference == finalOrderRef ||
+        existingTracking.orderId == finalOrderRef ||
+        existingTracking.orderReference == finalOrderId
+      );
       
-      log('[TrackingHelper] 🔍 Existing tracking: ${existingTracking?.orderId}');
-      log('[TrackingHelper] 🔍 New order: $finalOrderId');
+      log('[TrackingHelper] 🔍 Existing tracking: ${existingTracking?.orderId} / ${existingTracking?.orderReference}');
+      log('[TrackingHelper] 🔍 New order: $finalOrderId / $finalOrderRef');
       log('[TrackingHelper] 🔍 Same order? $isSameOrder');
 
+      // Keep stable ids so ActivityId map lookup succeeds on update
+      final updateOrderId = isSameOrder ? existingTracking!.orderId : finalOrderId;
+      final updateOrderRef = isSameOrder
+          ? (existingTracking!.orderReference.isNotEmpty
+              ? existingTracking.orderReference
+              : finalOrderRef)
+          : finalOrderRef;
+
       if (isSameOrder) {
-        // ✅ نفس الطلب - نحدث Live Activity الموجودة
         log('[TrackingHelper] 🔄 Updating existing Live Activity for same order...');
         final success = await updateTracking(
-          orderId: finalOrderId,
-          orderReference: finalOrderRef,
+          orderId: updateOrderId,
+          orderReference: updateOrderRef,
           shippingStatus: status,
           driverName: driverName,
           driverPhone: driverPhone,
@@ -248,10 +257,21 @@ class OrderTrackingHelper {
         if (success) {
           log('[TrackingHelper] ✅ Live Activity updated successfully!');
         } else {
-          log('[TrackingHelper] ❌ Failed to update Live Activity');
+          // Update failed (lost activityId) — force-replace Live Activity
+          log('[TrackingHelper] ⚠️ Update failed, force-replacing Live Activity...');
+          await stopTracking(silent: true);
+          await Future.delayed(const Duration(milliseconds: 400));
+          await startTracking(
+            orderId: updateOrderId,
+            orderReference: updateOrderRef,
+            shippingStatus: status,
+            driverName: driverName,
+            driverPhone: driverPhone,
+            estimatedDeliveryTime: estimatedTime,
+            deliveryAddress: address,
+          );
         }
       } else {
-        // ✅ طلب جديد - ننهي القديم ونبدأ جديد
         if (existingTracking != null) {
           log('[TrackingHelper] 🛑 Ending old Live Activity for order: ${existingTracking.orderId}');
           await stopTracking(silent: true);
@@ -332,6 +352,46 @@ class OrderTrackingHelper {
       }
     }
     return null;
+  }
+
+  /// Order-level statuses that must not drive Live Activity steps.
+  static const _orderLevelStatuses = {
+    'approved', 'draft', 'pending', 'declined', 'rejected',
+  };
+
+  static const _shippingSteps = {
+    'received', 'processing', 'delivery', 'delivered',
+    'canceled', 'cancelled', 'approved', // Approved as screen = confirmed step
+  };
+
+  /// Pick the real shipping step for Live Activity.
+  /// Prefer `screen` when it is a shipping event; ignore Approved-as-shipping_status.
+  static String? _extractShippingStep(Map<String, dynamic> payload) {
+    final screen = _extractString(payload, ['screen', 'Screen']);
+    final shipping = _extractString(payload, [
+      'shipping_status', 'shippingStatus',
+      'delivery_status', 'order_status', 'orderStatus',
+    ]);
+    final generic = _extractString(payload, ['status', 'Status']);
+
+    final screenNorm = screen?.toLowerCase().trim();
+    final shippingNorm = shipping?.toLowerCase().trim();
+
+    if (screen != null && screenNorm != null && _shippingSteps.contains(screenNorm)) {
+      return screen;
+    }
+    if (shipping != null &&
+        shippingNorm != null &&
+        !_orderLevelStatuses.contains(shippingNorm)) {
+      return shipping;
+    }
+    if (screen != null) return screen;
+    if (generic != null &&
+        !_orderLevelStatuses.contains(generic.toLowerCase().trim())) {
+      return generic;
+    }
+    // Last resort: Approved/Received as first confirm step only
+    return screen ?? shipping ?? generic;
   }
 
   static Map<String, dynamic> _flattenNotificationData(Map<String, dynamic> data) {
