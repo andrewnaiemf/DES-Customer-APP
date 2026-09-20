@@ -63,6 +63,11 @@ import 'functions/my_navigation.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 // 📱 Local Notifications Plugin
 // ═══════════════════════════════════════════════════════════════════════════
+final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+final GlobalKey<NavigatorState> globalNavigatorKey =
+    GlobalKey<NavigatorState>();
+
 bool _isOrderTrackingMessage(Map<String, dynamic> data) {
   final screen = data['screen']?.toString().toLowerCase() ?? '';
   const shippingScreens = {
