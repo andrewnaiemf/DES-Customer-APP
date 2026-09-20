@@ -267,8 +267,8 @@ public enum OrderStatus: String, Codable, Hashable, CaseIterable, Sendable {
         case "pending", "draft", "new", "awaiting", "معلق", "waiting":
             return .pending
             
-        // Confirmed variations
-        case "confirmed", "approved", "accepted", "مؤكد":
+        // Confirmed variations. Backend screen "Received" is the first shipping step.
+        case "confirmed", "approved", "accepted", "received", "مؤكد":
             return .confirmed
             
         // Preparing variations (includes "processing", "preparing")
@@ -279,18 +279,19 @@ public enum OrderStatus: String, Codable, Hashable, CaseIterable, Sendable {
         case "ready", "جاهز", "ready_for_pickup", "readyforpickup":
             return .ready
             
-        // Shipped/Out for delivery variations
+        // Shipped/Out for delivery. Backend screen is "Delivery" (not out_for_delivery).
         case "shipped", "shipping", "dispatched", "in_transit", "intransit",
-             "out_for_delivery", "outfordelivery", "out_delivery", 
-             "on_the_way", "ontheway", "خرج_للتوصيل", "pickedup":
+             "out_for_delivery", "outfordelivery", "out_delivery",
+             "on_the_way", "ontheway", "delivery", "picked_up", "pickedup",
+             "خرج_للتوصيل":
             return .outForDelivery
             
         // Arriving variations
         case "arriving", "فيالطريق", "في_الطريق", "nearby", "almost_there", "almostthere":
             return .arriving
             
-        // Delivered variations
-        case "delivered", "completed", "done", "received", "تم_التسليم":
+        // Delivered variations — do not map "received" here (that is the confirm step)
+        case "delivered", "completed", "done", "تم_التسليم":
             return .delivered
             
         // Cancelled variations
@@ -302,6 +303,16 @@ public enum OrderStatus: String, Codable, Hashable, CaseIterable, Sendable {
             // Try direct enum match as fallback
             return OrderStatus(rawValue: normalized) ?? .pending
         }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = OrderStatus.from(raw)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
     }
     
     public var next: OrderStatus? {
@@ -364,6 +375,44 @@ public struct OrderTrackingAttributes: ActivityAttributes, Sendable {
             self.lastUpdate = lastUpdate
             self.additionalMessage = additionalMessage
             self.language = language
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case status, estimatedTime, driverName, driverPhone, driverImageURL
+            case lastUpdate, additionalMessage, language
+        }
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            status = try container.decode(OrderStatus.self, forKey: .status)
+            estimatedTime = try container.decodeIfPresent(String.self, forKey: .estimatedTime)
+            driverName = try container.decodeIfPresent(String.self, forKey: .driverName)
+            driverPhone = try container.decodeIfPresent(String.self, forKey: .driverPhone)
+            driverImageURL = try container.decodeIfPresent(String.self, forKey: .driverImageURL)
+            additionalMessage = try container.decodeIfPresent(String.self, forKey: .additionalMessage)
+            language = try container.decodeIfPresent(String.self, forKey: .language)
+            if let timestamp = try? container.decode(Double.self, forKey: .lastUpdate) {
+                lastUpdate = timestamp > 1_000_000_000
+                    ? Date(timeIntervalSince1970: timestamp)
+                    : Date(timeIntervalSinceReferenceDate: timestamp)
+            } else if let iso = try? container.decode(String.self, forKey: .lastUpdate),
+                      let parsed = ISO8601DateFormatter().date(from: iso) {
+                lastUpdate = parsed
+            } else {
+                lastUpdate = Date()
+            }
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(status, forKey: .status)
+            try container.encodeIfPresent(estimatedTime, forKey: .estimatedTime)
+            try container.encodeIfPresent(driverName, forKey: .driverName)
+            try container.encodeIfPresent(driverPhone, forKey: .driverPhone)
+            try container.encodeIfPresent(driverImageURL, forKey: .driverImageURL)
+            try container.encode(lastUpdate.timeIntervalSince1970, forKey: .lastUpdate)
+            try container.encodeIfPresent(additionalMessage, forKey: .additionalMessage)
+            try container.encodeIfPresent(language, forKey: .language)
         }
         
         // ═══════════════════════════════════════════════════════════════════

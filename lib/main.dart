@@ -63,10 +63,27 @@ import 'functions/my_navigation.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 // 📱 Local Notifications Plugin
 // ═══════════════════════════════════════════════════════════════════════════
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-final GlobalKey<NavigatorState> globalNavigatorKey =
-GlobalKey<NavigatorState>();
+bool _isOrderTrackingMessage(Map<String, dynamic> data) {
+  final screen = data['screen']?.toString().toLowerCase() ?? '';
+  const shippingScreens = {
+    'received',
+    'processing',
+    'delivery',
+    'delivered',
+    'approved',
+    'declined',
+    'canceled',
+    'cancelled',
+  };
+  final hasOrderId = data.containsKey('order_id') ||
+      data.containsKey('orderId') ||
+      data.containsKey('id');
+  final hasStatus = data.containsKey('shipping_status') ||
+      data.containsKey('shippingStatus') ||
+      data.containsKey('status') ||
+      data.containsKey('screen');
+  return shippingScreens.contains(screen) || hasOrderId || hasStatus;
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // 📱 Background Message Handler (Must be top-level function)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -86,14 +103,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   
   // 🚀 CRITICAL: Handle order tracking for ALL order notifications
   final data = message.data;
-  final hasOrderId = data.containsKey('order_id') || 
-                     data.containsKey('orderId') || 
-                     data.containsKey('id');
-  final hasStatus = data.containsKey('shipping_status') || 
-                    data.containsKey('shippingStatus') ||
-                    data.containsKey('status');
-  
-  if (hasOrderId || hasStatus) {
+  if (_isOrderTrackingMessage(data)) {
     log('📦 Order notification detected in background - Starting/Updating Live Activity');
     await OrderTrackingHelper.handleOrderNotification(data);
   }
@@ -259,14 +269,7 @@ void main() async {
         );
       }
 
-      final hasOrderId = data.containsKey('order_id') ||
-          data.containsKey('orderId') ||
-          data.containsKey('id');
-      final hasStatus = data.containsKey('shipping_status') ||
-          data.containsKey('shippingStatus') ||
-          data.containsKey('status');
-
-      if (hasOrderId || hasStatus) {
+      if (_isOrderTrackingMessage(data)) {
         log('📦 Order notification detected in foreground - Starting/Updating Live Activity');
         OrderTrackingHelper.handleOrderNotification(data);
       }
@@ -281,14 +284,8 @@ void main() async {
       log('Data: ${message.data}');
 
       final data = message.data;
-      final hasOrderId = data.containsKey('order_id') ||
-          data.containsKey('orderId') ||
-          data.containsKey('id');
-      final hasStatus = data.containsKey('shipping_status') ||
-          data.containsKey('shippingStatus') ||
-          data.containsKey('status');
 
-      if (hasOrderId || hasStatus) {
+      if (_isOrderTrackingMessage(data)) {
         log('📦 Order notification tapped - Starting/Updating Live Activity');
         OrderTrackingHelper.handleOrderNotification(data);
       }
@@ -300,14 +297,8 @@ void main() async {
       log('Data: ${initialMessage.data}');
 
       final data = initialMessage.data;
-      final hasOrderId = data.containsKey('order_id') ||
-          data.containsKey('orderId') ||
-          data.containsKey('id');
-      final hasStatus = data.containsKey('shipping_status') ||
-          data.containsKey('shippingStatus') ||
-          data.containsKey('status');
 
-      if (hasOrderId || hasStatus) {
+      if (_isOrderTrackingMessage(data)) {
         log('📦 App opened from order notification - Starting/Updating Live Activity');
         await OrderTrackingHelper.handleOrderNotification(data);
       }

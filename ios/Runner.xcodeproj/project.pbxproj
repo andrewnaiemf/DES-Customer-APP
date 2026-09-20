@@ -16,6 +16,7 @@
 		A28A6FC90BA19115ECBE0419 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14109B5435F478928E932A89 /* Pods_Runner.framework */; };
 		D8B3D8D16D7D420A7F0E3BBF /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1DF99809985D71E0F3AAC2A5 /* GoogleService-Info.plist */; };
 		EF1EC1E22F2ED33300435C82 /* OrderTrackingAttributesV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1EC1E12F2ED33300435C82 /* OrderTrackingAttributesV2.swift */; };
+		B8C1LA011F4A000100000002 /* LiveActivityRemoteUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C1LA011F4A000100000001 /* LiveActivityRemoteUpdater.swift */; };
 
 		A1B2C3D42F3A000100000002 /* OrderTrackingWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1B2C3D42F3A000100000001 /* OrderTrackingWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A1B2C3D42F3A000100000003 /* OrderTrackingAttributesV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1EC1E12F2ED33300435C82 /* OrderTrackingAttributesV2.swift */; };
@@ -61,6 +62,7 @@
 		57E8AF1DE221EE41CBD4DA70 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B8C1LA011F4A000100000001 /* LiveActivityRemoteUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityRemoteUpdater.swift; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		7F0E1E9B9F4258156A24A32C /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		936777201A978D55FE4B3918 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
@@ -182,6 +184,7 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				B8C1LA011F4A000100000001 /* LiveActivityRemoteUpdater.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -406,6 +409,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EF1EC1E22F2ED33300435C82 /* OrderTrackingAttributesV2.swift in Sources */,
+				B8C1LA011F4A000100000002 /* LiveActivityRemoteUpdater.swift in Sources */,
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);

@@ -66,4 +66,5 @@ class EndPoints {
   static declineOffer(String offerId) => '/api/user/offers/$offerId/decline';
   static const getOffers = '/api/user/offers';
   static const getAppVersion = '/api/user/app-versions?app=customer';
+  static const liveActivityToken = '/api/user/live-activity-token';
 }

@@ -18,6 +18,8 @@ import 'package:rxdart/rxdart.dart'; // ✅ إضافة rxdart
 import '../models/order_tracking_model.dart';
 import '../theme/tracking_colors.dart';
 import 'order_firestore_listener.dart';
+import 'package:app/data/constants/api_constants.dart';
+import 'package:app/network/dio_helper.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🚀 Live Order Tracking Service
@@ -176,6 +178,15 @@ class LiveOrderTrackingService {
               _activityIds.remove(orderId);
               await _saveActivityIds();
             }
+            break;
+          case 'onLiveActivityPushToken':
+            final args = call.arguments is Map
+                ? Map<String, dynamic>.from(call.arguments as Map)
+                : <String, dynamic>{};
+            await _uploadLiveActivityPushToken(
+              orderId: args['orderId']?.toString(),
+              token: args['token']?.toString(),
+            );
             break;
         }
       });
@@ -592,6 +603,25 @@ class LiveOrderTrackingService {
   void _completePendingCreations(String orderId, bool success) {
     final pending = _pendingCreations.remove(orderId);
     pending?.complete(success);
+  }
+
+  Future<void> _uploadLiveActivityPushToken({
+    String? orderId,
+    String? token,
+  }) async {
+    if (token == null || token.isEmpty) return;
+    try {
+      await DioHelper.post(
+        path: EndPoints.liveActivityToken,
+        data: {
+          'token': token,
+          if (orderId != null && orderId.isNotEmpty) 'order_id': orderId,
+        },
+      );
+      _log('🔑 Live Activity push token uploaded for $orderId');
+    } catch (e) {
+      _log('⚠️ Failed to upload Live Activity token: $e');
+    }
   }
 
   Future<bool> _updateIOSLiveActivity(OrderTrackingModel tracking) async {

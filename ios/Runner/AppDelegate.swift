@@ -45,6 +45,35 @@ import ActivityKit
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  // Live Activity must update from the APNs payload itself. Flutter does not
+  // run while the app is backgrounded, so the lock-screen widget would freeze.
+  override func application(
+    _ application: UIApplication,
+    didReceiveRemoteNotification userInfo: [AnyHashable: Any],
+    fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void
+  ) {
+    LiveActivityRemoteUpdater.update(from: userInfo)
+    super.application(application, didReceiveRemoteNotification: userInfo, fetchCompletionHandler: completionHandler)
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    LiveActivityRemoteUpdater.update(from: notification.request.content.userInfo)
+    super.userNotificationCenter(center, willPresent: notification, withCompletionHandler: completionHandler)
+  }
+
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    LiveActivityRemoteUpdater.update(from: response.notification.request.content.userInfo)
+    super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // 🔗 Universal Links — تمرير الرابط لباكدج app_links
   // ───────────────────────────────────────────────────────────────────────
@@ -81,6 +110,7 @@ import ActivityKit
     for activity in activities {
       // تخزين الـ Activities الموجودة
       activeOrderActivitiesStorage[activity.attributes.orderId] = activity
+      observePushToken(for: activity)
       print("   📦 Cached activity for order: \(activity.attributes.orderId)")
     }
   }
@@ -252,15 +282,26 @@ import ActivityKit
       )
       
       let content = ActivityContent(state: initialState, staleDate: nil)
-      
-      let activity = try Activity.request(
-        attributes: attributes,
-        content: content,
-        pushType: nil
-      )
-      
+
+      let activity: Activity<OrderTrackingAttributes>
+      do {
+        activity = try Activity.request(
+          attributes: attributes,
+          content: content,
+          pushType: .token
+        )
+      } catch {
+        print("⚠️ Live Activity pushType.token failed, falling back: \(error.localizedDescription)")
+        activity = try Activity.request(
+          attributes: attributes,
+          content: content,
+          pushType: nil
+        )
+      }
+
       // ✅ تخزين الـ Activity
       activeOrderActivitiesStorage[orderId] = activity
+      observePushToken(for: activity)
       
       print("✅ ════════════════════════════════════════════")
       print("✅ LIVE ACTIVITY CREATED SUCCESSFULLY!")
@@ -517,6 +558,23 @@ import ActivityKit
     }
     
     result(activeIds)
+  }
+
+  @available(iOS 16.2, *)
+  private func observePushToken(for activity: Activity<OrderTrackingAttributes>) {
+    let orderId = activity.attributes.orderId
+    Task {
+      for await tokenData in activity.pushTokenUpdates {
+        let token = LiveActivityRemoteUpdater.hexToken(tokenData)
+        print("🔑 Live Activity push token for \(orderId): \(token.prefix(16))...")
+        await MainActor.run {
+          self.liveActivityChannel?.invokeMethod("onLiveActivityPushToken", arguments: [
+            "orderId": orderId,
+            "token": token
+          ])
+        }
+      }
+    }
   }
   
   // ═══════════════════════════════════════════════════════════════════════
