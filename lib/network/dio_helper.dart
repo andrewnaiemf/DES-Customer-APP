@@ -19,8 +19,8 @@ class DioHelper {
   static init() {
     dio.options = BaseOptions(
       baseUrl: ApiConstants.baseURL,
-      connectTimeout: const Duration(seconds: 30), // ⏱️ انتظار الاتصال 30 ثانية
-      receiveTimeout: const Duration(seconds: 30), // ⏱️ انتظار الاستقبال 30 ثانية
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 20),
       sendTimeout: const Duration(minutes: 2),
       validateStatus: (statusCode) {
         // if (statusCode == 422) {
@@ -135,8 +135,8 @@ class DioHelperV2 {
   static init() {
     dio.options = BaseOptions(
       baseUrl: ApiConstants.baseURL2,
-      connectTimeout: const Duration(seconds: 30), // ⏱️ إضافة timeout للاتصال
-      receiveTimeout: const Duration(seconds: 30), // ⏱️ إضافة timeout للاستقبال
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 20),
       sendTimeout: const Duration(minutes: 2),
       validateStatus: (statusCode) => true,
       headers: CacheHelper.getString(key: "access_token") == null

@@ -10,12 +10,13 @@ class ProductsServices {
   static String endPoint = EndPoints.products;
 
   static List<ProductModel> data = [];
-  static Future<List<ProductModel>> getData() async {
+  static Future<List<ProductModel>> getData({int page = 1, int perPage = 20}) async {
     data.clear();
     try {
-      DioHelper.dio.options.headers.addAll({"per-page": 1000});
-      var result = await DioHelper.get(path: endPoint);
-      DioHelper.dio.options.headers.remove('per-page');
+      var result = await DioHelper.get(
+        path: endPoint,
+        queryParameters: {'page': page, 'per_page': perPage},
+      );
 
       if (result.statusCode == 200) {
         log('Get $endPoint Success');
@@ -32,12 +33,13 @@ class ProductsServices {
       return data;
     }
   }
-  static Future<List<ProductModel>> getAllData() async {
+  static Future<List<ProductModel>> getAllData({int page = 1, int perPage = 20}) async {
     data.clear();
     try {
-      DioHelper.dio.options.headers.addAll({"per-page": 1000});
-      var result = await DioHelper.get(path: endPoint);
-      DioHelper.dio.options.headers.remove('per-page');
+      var result = await DioHelper.get(
+        path: endPoint,
+        queryParameters: {'page': page, 'per_page': perPage},
+      );
 
       if (result.statusCode == 200) {
         log('Get $endPoint Success');

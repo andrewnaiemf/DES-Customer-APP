@@ -36,9 +36,9 @@ class ReceiptsServices {
         queryParams['search'] = search;
       }
 
-      // If no pagination params, use old header method for backward compatibility
       if (page == null) {
-        DioHelper.dio.options.headers.addAll({"per-page": 1000});
+        queryParams['page'] = 1;
+        queryParams['per_page'] = perPage ?? 20;
       }
 
       var result = await DioHelper.get(
@@ -46,9 +46,6 @@ class ReceiptsServices {
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
 
-      if (page == null) {
-        DioHelper.dio.options.headers.remove('per-page');
-      }
 
       if (result.statusCode == 200) {
         log('Get $endPoint Success (Page: ${page ?? 'all'})');
@@ -117,6 +114,7 @@ class ReceiptsServices {
             'current_page': result.data['data']['current_page'] ?? page,
             'last_page': result.data['data']['last_page'] ?? 1,
             'total': result.data['data']['total'] ?? 0,
+            'next_page_url': result.data['data']['next_page_url'],
           };
         }
         

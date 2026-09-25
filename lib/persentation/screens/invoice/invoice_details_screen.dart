@@ -9,6 +9,7 @@ import 'package:app/functions/functions.dart';
 import 'package:app/helpers/my_navigation.dart';
 import 'package:app/models/invoice/invoice_model.dart';
 import 'package:app/models/line_items/line_items_model.dart';
+import 'package:app/network/services/invoice_services.dart';
 import 'package:app/persentation/widgets/directional_arrow.dart';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -123,7 +124,10 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   bool get _isRTL => context.locale.languageCode == 'ar';
 
-  InVoiceModel get invoice => widget.inVoiceModel;
+  late InVoiceModel _invoice;
+  bool _loadingDetails = false;
+
+  InVoiceModel get invoice => _invoice;
 
   // Cached calculations
   late double _totalBeforeTax;
@@ -132,9 +136,30 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
   @override
   void initState() {
     super.initState();
+    _invoice = widget.inVoiceModel;
     _setupAnimations();
     _calculateTotals();
     _scrollController.addListener(_onScroll);
+    _loadFullInvoice();
+  }
+
+  Future<void> _loadFullInvoice() async {
+    final id = _invoice.id;
+    if (id == null) return;
+    setState(() => _loadingDetails = true);
+    final full = await InVoiceServices.getById(id);
+    if (!mounted) return;
+    setState(() {
+      if (full != null) {
+        if ((full.pdf == null || full.pdf!.trim().isEmpty) &&
+            (_invoice.pdf != null && _invoice.pdf!.trim().isNotEmpty)) {
+          full.pdf = _invoice.pdf;
+        }
+        _invoice = full;
+        _calculateTotals();
+      }
+      _loadingDetails = false;
+    });
   }
 
   void _onScroll() {
@@ -144,6 +169,14 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
   void _calculateTotals() {
     _totalBeforeTax = _calculateTotalUnitPrice(invoice.lineItems);
     _totalTax = _calculateTotalTax(invoice.lineItems);
+
+    if (_totalBeforeTax == 0 && _totalTax == 0) {
+      final invoiceTotal = double.tryParse(invoice.total ?? '0') ?? 0;
+      if (invoiceTotal > 0) {
+        _totalBeforeTax = invoiceTotal / 1.15;
+        _totalTax = invoiceTotal - _totalBeforeTax;
+      }
+    }
   }
 
   void _setupAnimations() {
@@ -416,7 +449,7 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
           ),
           SizedBox(width: 5.999985),
           Text(
-            status,
+            _translateInvoiceStatus(status),
             style: TextStyle(
               fontSize: 10.9999725,
               fontWeight: FontWeight.w600,
@@ -449,8 +482,18 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
     switch (status.toLowerCase()) {
       case 'paid':
       case 'completed':
+      case 'ispaid':
+      case 'is paid':
         return AppTheme.success;
+      case 'unpaid':
       case 'pending':
+        return AppTheme.orange;
+      case 'return':
+      case 'returned':
+        return AppTheme.purple;
+      case 'partialreturn':
+      case 'partial return':
+      case 'partial returned':
         return AppTheme.orange;
       case 'overdue':
       case 'cancelled':
@@ -667,8 +710,8 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
             _buildDivider(),
             _buildDetailRow(
               icon: Icons.payment_rounded,
-              label: 'Payment Method',
-              value: invoice.paymentMethod ?? '-',
+              label: 'Payment Method'.tr(),
+              value: _translatePaymentMethod(invoice.paymentMethod),
               color: AppTheme.lightGreen,
             ),
           ],
@@ -792,7 +835,7 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Customer',
+                    'Customer'.tr(),
                     style: TextStyle(
                       fontSize: 11.99997,
                       color: AppTheme.getTextSecondary(_isDark),
@@ -801,7 +844,7 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
                   ),
                   SizedBox(height: 3.99999),
                   Text(
-                    invoice.contact?.name ?? '-',
+                    invoice.contact?.name ?? invoice.owner?.name ?? '-',
                     style: TextStyle(
                       fontSize: 15.99996,
                       fontWeight: FontWeight.w700,
@@ -859,7 +902,7 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Products',
+                      'Products'.tr(),
                       style: TextStyle(
                         fontSize: 17.999955,
                         fontWeight: FontWeight.w700,
@@ -868,7 +911,7 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
                     ),
                     SizedBox(height: 1.999995),
                     Text(
-                      '${invoice.lineItems?.length ?? 0} items',
+                      '${invoice.lineItems?.length ?? 0} ${'items'.tr()}',
                       style: TextStyle(
                         fontSize: 12.9999675,
                         color: AppTheme.getTextSecondary(_isDark),
@@ -898,11 +941,9 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
   Widget _buildLineItemCard(LineItemsModel item, int index) {
     final double unitPrice = double.tryParse(item.unitPrice) ?? 0;
     final double quantity = double.tryParse(item.quantity) ?? 0;
-    final double discount = double.tryParse(item.discount) ?? 0;
-    final double taxPercent = double.tryParse(item.taxPercent ?? "0") ?? 0;
-
-    final double totalBeforeTax = (unitPrice * quantity) - discount;
-    final double taxValue = totalBeforeTax * (taxPercent / 99.99975);
+    final double taxPercent = double.tryParse(item.taxPercent) ?? 0;
+    final double totalBeforeTax = _lineNet(item);
+    final double taxValue = totalBeforeTax * (taxPercent / 100);
     final double total = totalBeforeTax + taxValue;
 
     return _buildAnimatedCard(
@@ -947,7 +988,7 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          item.name ?? 'Product',
+                          item.name ?? 'Product'.tr(),
                           style: TextStyle(
                             fontSize: 14.9999625,
                             fontWeight: FontWeight.w700,
@@ -1175,7 +1216,7 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
                 ),
                 SizedBox(width: 13.999965),
                 Text(
-                  'Summary',
+                  'Summary'.tr(),
                   style: TextStyle(
                     fontSize: 16.9999575,
                     fontWeight: FontWeight.w700,
@@ -1500,18 +1541,52 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
   Future<void> _handleDownload() async {
     HapticFeedback.mediumImpact();
 
-    if (invoice.pdf != null) {
-      await DownloadPDFClass.downloadPDF(
-        invoice.reference.toString(),
-        '${ApiConstants.stoarge}${invoice.pdf.toString()}',
-      );
-    } else {
-      showMessage(
-        context: context,
-        message: "PDF not found",
-        color: AppTheme.red,
-      );
+    final id = invoice.id;
+    if (id == null) {
+      _showPdfNotFound();
+      return;
     }
+
+    final name = invoice.reference?.toString().trim().isNotEmpty == true
+        ? invoice.reference!.toString()
+        : 'invoice_$id';
+
+    try {
+      final bytes = await InVoiceServices.downloadPdfBytes(id);
+      if (bytes != null && bytes.isNotEmpty) {
+        await DownloadPDFClass.savePdfBytes(name, bytes);
+        return;
+      }
+
+      final urls = <String>{
+        '${ApiConstants.stoarge}invoices/pdf/$id/invoice.pdf',
+        'https://driveshield.net/storage/invoices/pdf/$id/invoice.pdf',
+        if ((invoice.pdf ?? '').trim().isNotEmpty)
+          invoice.pdf!.trim().startsWith('http')
+              ? invoice.pdf!.trim()
+              : '${ApiConstants.stoarge}${invoice.pdf!.trim()}',
+      };
+
+      for (final url in urls) {
+        final saved = await DownloadPDFClass.downloadPDF(name, url);
+        if (saved.isNotEmpty) {
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Invoice PDF download failed: $e');
+    }
+
+    if (!mounted) return;
+    _showPdfNotFound();
+  }
+
+  void _showPdfNotFound() {
+    showMessage(
+      context: context,
+      message: "PDF not found",
+      color: AppTheme.red,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1537,32 +1612,77 @@ class _InVoiceDetailsScreenState extends State<InVoiceDetailsScreen>
     );
   }
 
+  String _translateInvoiceStatus(String? status) {
+    switch ((status ?? '').trim().toLowerCase()) {
+      case 'paid':
+      case 'completed':
+      case 'ispaid':
+      case 'is paid':
+      case 'تم الدفع':
+      case 'دفعت':
+        return 'Paid'.tr();
+      case 'unpaid':
+      case 'pending':
+      case 'قيد الانتظار':
+        return 'Pending'.tr();
+      case 'return':
+      case 'returned':
+      case 'مرتجع':
+        return 'Return'.tr();
+      case 'partialreturn':
+      case 'partial return':
+      case 'partial returned':
+      case 'مرتجع جزئيا':
+      case 'مرتجع جزئي':
+        return 'Partial Return'.tr();
+      default:
+        return (status == null || status.isEmpty) ? '-' : status.tr();
+    }
+  }
+
+  String _translatePaymentMethod(String? method) {
+    switch ((method ?? '').trim().toLowerCase()) {
+      case 'ispaid':
+      case 'is paid':
+      case 'paid':
+      case 'تم الدفع':
+      case 'دفعت':
+        return 'Paid'.tr();
+      case 'in_advance':
+      case 'in advance':
+      case 'الدفع بالاجل':
+      case 'الدفع الآجل':
+        return 'In Advance'.tr();
+      default:
+        return _translateInvoiceStatus(method);
+    }
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // 🔢 Calculation Helpers
   // ═══════════════════════════════════════════════════════════════════════
-  double _calculateTotalUnitPrice(List<LineItemsModel>? lineItems) {
-    if (lineItems == null) return 0;
+  double _lineNet(LineItemsModel item) {
+    final unitPrice = double.tryParse(item.unitPrice) ?? 0;
+    final quantity = double.tryParse(item.quantity) ?? 0;
+    final discount = double.tryParse(item.discount) ?? 0;
+    final gross = unitPrice * quantity;
+    if (item.discountType.toLowerCase() == 'percentage') {
+      return gross * (1 - (discount / 100));
+    }
+    return gross - discount;
+  }
 
-    return lineItems.fold(0, (total, item) {
-      final price = (double.tryParse(item.unitPrice) ?? 0) *
-          (double.tryParse(item.quantity) ?? 0) -
-          (double.tryParse(item.discount) ?? 0);
-      return total + price;
-    });
+  double _calculateTotalUnitPrice(List<LineItemsModel>? lineItems) {
+    if (lineItems == null || lineItems.isEmpty) return 0;
+    return lineItems.fold(0, (total, item) => total + _lineNet(item));
   }
 
   double _calculateTotalTax(List<LineItemsModel>? lineItems) {
-    if (lineItems == null) return 0;
+    if (lineItems == null || lineItems.isEmpty) return 0;
 
     return lineItems.fold(0, (total, item) {
-      final unitPrice = double.tryParse(item.unitPrice) ?? 0;
-      final discount = double.tryParse(item.discount) ?? 0;
-      final quantity = double.tryParse(item.quantity) ?? 0;
-      final taxPercent = double.tryParse(item.taxPercent ?? "0") ?? 0;
-
-      final totalPriceBeforeTax = (unitPrice * quantity) - discount;
-      final taxValue = totalPriceBeforeTax * (taxPercent / 99.99975);
-      return total + taxValue;
+      final taxPercent = double.tryParse(item.taxPercent) ?? 0;
+      return total + (_lineNet(item) * (taxPercent / 100));
     });
   }
 }

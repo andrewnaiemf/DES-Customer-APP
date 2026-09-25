@@ -12,76 +12,59 @@ class InVoiceCubit extends Cubit<InVoiceState> {
 
   static InVoiceCubit get(BuildContext context) => BlocProvider.of(context);
 
-  // Pagination constants
   static const int _invoicesPerPage = 20;
   static const Duration _cacheValidDuration = Duration(minutes: 5);
 
-  // Pagination state
   bool isLoadingData = false;
   List<InVoiceModel> allInVoice = [];
+  int totalInvoices = 0;
+  Map<String, int> statusCounts = const {
+    'all': 0,
+    'paid': 0,
+    'unpaid': 0,
+    'return': 0,
+    'partial_return': 0,
+  };
   int _currentPage = 1;
   bool _hasMore = true;
   String? _currentFilter;
+
+  String? get activeFilter => _currentFilter;
   String? _currentSearchQuery;
   DateTime? _lastFetchTime;
   Timer? _searchDebounce;
 
-  // Original method - kept for backward compatibility
-  Future<void> getInVoice_OLD() async {
-    try {
-      isLoadingData = true;
-      emit(InVoiceGetLoading(isFirstLoad: true));
-      allInVoice = await InVoiceServices.getData();
-      isLoadingData = false;
-      emit(InVoiceGetSuccess(
-        currentPage: 1,
-        lastPage: 1,
-        total: allInVoice.length,
-        hasMore: false,
-        lastUpdated: DateTime.now(),
-      ));
-    } catch (e) {
-      log('Error in getInVoice_OLD: $e');
-      isLoadingData = false;
-      emit(InVoiceGetError(message: e.toString()));
-    }
-  }
-
-  /// Main method to get invoices - Without Pagination (loads all data)
   Future<void> getInvoices({
     bool forceRefresh = false,
     String? status,
   }) async {
+    if (!forceRefresh &&
+        _isCacheValid() &&
+        status == _currentFilter &&
+        allInVoice.isNotEmpty) {
+      return;
+    }
+
+    _currentFilter = status;
+    _currentPage = 1;
+    _hasMore = true;
+    allInVoice.clear();
+
+    isLoadingData = true;
+    emit(InVoiceGetLoading(isFirstLoad: true));
+
     try {
-      // Check cache validity
-      if (!forceRefresh && _isCacheValid()) {
-        log('Using cached invoice data');
-        return;
-      }
-
-      _currentFilter = status;
-      allInVoice.clear();
-
-      isLoadingData = true;
-      emit(InVoiceGetLoading(isFirstLoad: true));
-
-      // ✅ استخدام الـ method القديمة بدون pagination
-      allInVoice = await InVoiceServices.getData();
-
+      final page = await _loadPage(1);
       _lastFetchTime = DateTime.now();
-      _hasMore = false; // لا يوجد المزيد (كل البيانات محملة)
-
       isLoadingData = false;
       emit(InVoiceGetSuccess(
-        currentPage: 1,
-        lastPage: 1,
-        total: allInVoice.length,
-        hasMore: false,
+        currentPage: _currentPage,
+        lastPage: page.lastPage,
+        total: page.total,
+        hasMore: _hasMore,
         activeFilter: status,
         lastUpdated: _lastFetchTime!,
       ));
-
-      log('📄 All invoices loaded: ${allInVoice.length}');
     } catch (e) {
       log('❌ Error in getInvoices: $e');
       isLoadingData = false;
@@ -92,21 +75,99 @@ class InVoiceCubit extends Cubit<InVoiceState> {
     }
   }
 
-  /// Load more invoices (DISABLED - all data loaded at once)
   Future<void> loadMore() async {
-    // ❌ Pagination disabled - all data is loaded in getInvoices()
-    return;
+    if (!_hasMore || isLoadingData) return;
+    if (state is InVoiceGetLoading &&
+        (state as InVoiceGetLoading).isLoadingMore) {
+      return;
+    }
+
+    isLoadingData = true;
+    if (state is InVoiceGetSuccess) {
+      emit((state as InVoiceGetSuccess).copyWith(isLoadingMore: true));
+    }
+
+    try {
+      final nextPage = _currentPage + 1;
+      final page = await _loadPage(nextPage);
+      isLoadingData = false;
+      emit(InVoiceGetSuccess(
+        currentPage: _currentPage,
+        lastPage: page.lastPage,
+        total: page.total,
+        hasMore: _hasMore,
+        isLoadingMore: false,
+        activeFilter: _currentFilter,
+        lastUpdated: DateTime.now(),
+      ));
+    } catch (e) {
+      log('❌ Error in invoice loadMore: $e');
+      isLoadingData = false;
+      if (state is InVoiceGetSuccess) {
+        emit((state as InVoiceGetSuccess).copyWith(isLoadingMore: false));
+      }
+    }
   }
 
-  /// Filter invoices by status
+  Future<({int lastPage, int total})> _loadPage(int page) async {
+    final result = await InVoiceServices.getPaginatedInvoices(
+      page: page,
+      perPage: _invoicesPerPage,
+      status: _currentFilter,
+      search: _currentSearchQuery,
+    );
+
+    List<InVoiceModel> items = [];
+    int lastPage = page;
+    int total = totalInvoices;
+    bool hasMore = false;
+
+    if (result != null) {
+      final raw = result['data'];
+      final list = raw is List ? raw : const [];
+      items = list
+          .whereType<Map>()
+          .map((e) => InVoiceModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      lastPage = int.tryParse('${result['last_page'] ?? page}') ?? page;
+      final parsedTotal = int.tryParse('${result['total'] ?? ''}') ?? 0;
+      if (parsedTotal > 0) {
+        total = parsedTotal;
+      } else if (total <= 0) {
+        total = (page == 1 ? items.length : allInVoice.length + items.length);
+      }
+      _applyCounts(result['counts']);
+      final nextUrl = result['next_page_url'];
+      hasMore = nextUrl != null || page < lastPage;
+    } else {
+      items = await InVoiceServices.getData(
+        page: page,
+        perPage: _invoicesPerPage,
+        status: _currentFilter,
+        search: _currentSearchQuery,
+      );
+      hasMore = items.length >= _invoicesPerPage;
+      if (total <= 0) {
+        total = (page == 1 ? items.length : allInVoice.length + items.length);
+      }
+    }
+
+    if (page == 1) {
+      allInVoice = items;
+    } else {
+      allInVoice.addAll(items);
+    }
+    _currentPage = page;
+    _hasMore = hasMore && items.isNotEmpty;
+    totalInvoices = total;
+    return (lastPage: lastPage, total: total);
+  }
+
   Future<void> filterByStatus(String? status) async {
     if (_currentFilter == status) return;
-    
-    log('🔍 Filtering invoices by status: $status');
     await getInvoices(forceRefresh: true, status: status);
   }
 
-  /// Search invoices with debounce
   void searchInvoices(String query) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
@@ -115,90 +176,92 @@ class InVoiceCubit extends Cubit<InVoiceState> {
   }
 
   Future<void> _performSearch(String query) async {
-    if (_currentSearchQuery == query) return;
-
-    _currentSearchQuery = query.isEmpty ? null : query;
-    log('🔍 Searching invoices: "$query"');
-
-    await getInvoices(
-      forceRefresh: true,
-      status: _currentFilter,
-    );
+    final normalized = query.isEmpty ? null : query;
+    if (_currentSearchQuery == normalized) return;
+    _currentSearchQuery = normalized;
+    await getInvoices(forceRefresh: true, status: _currentFilter);
   }
 
-  /// Refresh invoices (pull-to-refresh)
   Future<void> refresh() async {
     emit(InVoiceGetLoading(isRefreshing: true));
     await getInvoices(forceRefresh: true, status: _currentFilter);
   }
 
-  /// Update a single invoice in the list
   void updateInvoice(InVoiceModel updatedInvoice) {
     final index = allInVoice.indexWhere((inv) => inv.id == updatedInvoice.id);
     if (index != -1) {
       allInVoice[index] = updatedInvoice;
-      
       if (state is InVoiceGetSuccess) {
-        final currentState = state as InVoiceGetSuccess;
-        emit(currentState.copyWith(lastUpdated: DateTime.now()));
+        emit((state as InVoiceGetSuccess).copyWith(lastUpdated: DateTime.now()));
       }
-      
-      log('✅ Invoice updated: ${updatedInvoice.id}');
     }
   }
 
-  /// Add new invoice to the list
   void addInvoiceToList(InVoiceModel newInvoice) {
     allInVoice.insert(0, newInvoice);
-    
     if (state is InVoiceGetSuccess) {
       final currentState = state as InVoiceGetSuccess;
+      totalInvoices = currentState.total + 1;
       emit(currentState.copyWith(
-        total: currentState.total + 1,
+        total: totalInvoices,
         lastUpdated: DateTime.now(),
       ));
     }
-    
-    log('✅ Invoice added: ${newInvoice.id}');
   }
 
-  /// Remove invoice from the list
   void removeInvoiceFromList(int invoiceId) {
     final initialLength = allInVoice.length;
     allInVoice.removeWhere((inv) => inv.id == invoiceId);
     final removed = initialLength - allInVoice.length;
-    
     if (removed > 0 && state is InVoiceGetSuccess) {
       final currentState = state as InVoiceGetSuccess;
+      totalInvoices = currentState.total - removed;
       emit(currentState.copyWith(
-        total: currentState.total - removed,
+        total: totalInvoices,
         lastUpdated: DateTime.now(),
       ));
-      
-      log('✅ Invoice removed: $invoiceId');
     }
   }
 
-  /// Apply client-side filter (for fallback)
-  List<InVoiceModel> _applyFilter(List<InVoiceModel> invoices, String? status) {
-    if (status == null || status.isEmpty) return invoices;
-    return invoices.where((inv) => inv.status == status).toList();
+  void _applyCounts(dynamic raw) {
+    if (raw is! Map) return;
+    int read(String key) => int.tryParse('${raw[key] ?? ''}') ?? -1;
+    final all = read('all');
+    final paid = read('paid');
+    final unpaid = read('unpaid');
+    final returned = read('return');
+    final partialReturn = read('partial_return');
+    if (all < 0 && paid < 0 && unpaid < 0 && returned < 0 && partialReturn < 0) {
+      return;
+    }
+    statusCounts = {
+      'all': all >= 0 ? all : (statusCounts['all'] ?? 0),
+      'paid': paid >= 0 ? paid : (statusCounts['paid'] ?? 0),
+      'unpaid': unpaid >= 0 ? unpaid : (statusCounts['unpaid'] ?? 0),
+      'return': returned >= 0 ? returned : (statusCounts['return'] ?? 0),
+      'partial_return':
+          partialReturn >= 0 ? partialReturn : (statusCounts['partial_return'] ?? 0),
+    };
   }
 
-  /// Check if cache is still valid
   bool _isCacheValid() {
     if (_lastFetchTime == null) return false;
-    final difference = DateTime.now().difference(_lastFetchTime!);
-    return difference < _cacheValidDuration;
+    return DateTime.now().difference(_lastFetchTime!) < _cacheValidDuration;
   }
 
-  /// Clear cache and force refresh
   void clearCache() {
     _lastFetchTime = null;
     allInVoice.clear();
+    totalInvoices = 0;
+    statusCounts = const {
+      'all': 0,
+      'paid': 0,
+      'unpaid': 0,
+      'return': 0,
+      'partial_return': 0,
+    };
     _currentPage = 1;
     _hasMore = true;
-    log('🗑️ Invoice cache cleared');
   }
 
   @override

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
@@ -18,7 +19,6 @@ import 'package:app/business_logic/receipt/cubit/receipt_cubit.dart';
 import 'package:app/business_logic/reset_password/cubit/reset_password_cubit.dart';
 import 'package:app/business_logic/translation/cubit/translation_cubit.dart';
 import 'package:app/business_logic/tracking/tracking_cubit.dart';
-import 'package:app/persentation/screens/offers/offers_screen.dart';
 import 'package:app/services/tracking_error_handler.dart';
 import 'package:app/theme/colors.dart';
 import 'package:app/firebase_options.dart';
@@ -191,7 +191,78 @@ void main() async {
   ]);
 
   if (!kIsWeb) {
-    // Initialize Firebase Messaging
+    unawaited(_initPushNotifications());
+  } else {
+    log('ℹ️ Skipping Firebase Messaging on web (not configured)');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // 🔐 تحديد حالة الجلسة عند بدء التطبيق
+  // ═══════════════════════════════════════════════════════════════════════════
+  final bool storedIsLoggedIn = CacheHelper.getBool(key: "is_logged_in") ?? false;
+  final String? storedToken = CacheHelper.getString(key: "access_token");
+  bool hasSession =
+      storedIsLoggedIn && storedToken != null && storedToken.isNotEmpty;
+
+  if (hasSession) {
+    final lastActivityRaw =
+        CacheHelper.getString(key: 'last_app_activity_at');
+    final lastActivity = lastActivityRaw != null
+        ? DateTime.tryParse(lastActivityRaw)?.toUtc()
+        : null;
+    final cutoff =
+        DateTime.now().toUtc().subtract(const Duration(days: 90));
+    if (lastActivity != null && lastActivity.isBefore(cutoff)) {
+      await _clearCustomerSession();
+      hasSession = false;
+      log('🔐 Session cleared: inactive for 3+ months (local check)');
+    }
+  }
+
+  UserModel? userModel = hasSession ? ProfileServices.loadCachedUser() : null;
+  bool isLoggedIn = hasSession;
+
+  if (hasSession) {
+    unawaited(ProfileServices.getProfileWithStatus().then((profileResult) async {
+      switch (profileResult.outcome) {
+        case ProfileFetchOutcome.success:
+          await CacheHelper.setString(
+            key: 'last_app_activity_at',
+            value: DateTime.now().toUtc().toIso8601String(),
+          );
+          break;
+        case ProfileFetchOutcome.unauthorized:
+          await _clearCustomerSession();
+          break;
+        case ProfileFetchOutcome.transientError:
+          break;
+      }
+    }));
+  }
+
+  final themeProvider = AppThemeProvider();
+  await themeProvider.loadTheme();
+  await DeepLinkService.instance.init(globalNavigatorKey);
+
+  runApp(
+    ChangeNotifierProvider.value(
+      value: themeProvider,
+      child: EasyLocalization(
+        supportedLocales: const [
+          Locale('ar'),
+          Locale('en'),
+        ],
+        startLocale: const Locale('ar'),
+        path: 'assets/translations',
+        fallbackLocale: const Locale('ar'),
+        child: MyApp(userModel: userModel, isLoggedIn: isLoggedIn),
+      ),
+    ),
+  );
+}
+
+Future<void> _initPushNotifications() async {
+  try {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
 
     // Initialize Local Notifications
@@ -234,12 +305,7 @@ void main() async {
           log('APNS Token: $apnsToken');
           token = await messaging.getToken();
         } else {
-          log('⚠️ APNS token not available yet, will retry...');
-          await Future.delayed(const Duration(seconds: 2));
-          apnsToken = await messaging.getAPNSToken();
-          if (apnsToken != null) {
-            token = await messaging.getToken();
-          }
+          log('⚠️ APNS token not available yet');
         }
       } else {
         token = await messaging.getToken();
@@ -266,12 +332,7 @@ void main() async {
       final type = data['type']?.toString().toLowerCase();
 
       if (type == 'offer') {
-        log('🎁 Offer notification detected - Navigating to OffersScreen');
-        globalNavigatorKey.currentState?.push(
-          MaterialPageRoute(
-            builder: (_) => const OffersScreen(),
-          ),
-        );
+        log('🎁 Offer notification received');
       }
 
       if (_isOrderTrackingMessage(data)) {
@@ -308,90 +369,9 @@ void main() async {
         await OrderTrackingHelper.handleOrderNotification(data);
       }
     }
-  } else {
-    log('ℹ️ Skipping Firebase Messaging on web (not configured)');
+  } catch (e) {
+    log('⚠️ Push notifications init failed: $e');
   }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // 🔐 تحديد حالة الجلسة عند بدء التطبيق
-  // المشكلة القديمة: كان أي فشل في /profile (نت ضعيف/timeout/سيرفر) بيرجّع null
-  // ويطرد المستخدم على شاشة Login رغم إن التوكن لسه صالح.
-  // الحل: نطرد المستخدم بس لو فعلاً مفيش جلسة أو السيرفر رفض التوكن (401).
-  // ═══════════════════════════════════════════════════════════════════════════
-  final bool storedIsLoggedIn = CacheHelper.getBool(key: "is_logged_in") ?? false;
-  final String? storedToken = CacheHelper.getString(key: "access_token");
-  bool hasSession =
-      storedIsLoggedIn && storedToken != null && storedToken.isNotEmpty;
-
-  // Local 3-month inactivity: clear session before hitting APIs.
-  if (hasSession) {
-    final lastActivityRaw =
-        CacheHelper.getString(key: 'last_app_activity_at');
-    final lastActivity = lastActivityRaw != null
-        ? DateTime.tryParse(lastActivityRaw)?.toUtc()
-        : null;
-    final cutoff =
-        DateTime.now().toUtc().subtract(const Duration(days: 90)); // ~3 months
-    if (lastActivity != null && lastActivity.isBefore(cutoff)) {
-      await _clearCustomerSession();
-      hasSession = false;
-      log('🔐 Session cleared: inactive for 3+ months (local check)');
-    }
-  }
-
-  UserModel? userModel;
-  bool isLoggedIn = false;
-
-  if (hasSession) {
-    final profileResult = await ProfileServices.getProfileWithStatus();
-
-    switch (profileResult.outcome) {
-      case ProfileFetchOutcome.success:
-        userModel = profileResult.user;
-        isLoggedIn = true;
-        await CacheHelper.setString(
-          key: 'last_app_activity_at',
-          value: DateTime.now().toUtc().toIso8601String(),
-        );
-        break;
-      case ProfileFetchOutcome.unauthorized:
-        // Token rejected / inactivity expiry from server → clear session
-        await _clearCustomerSession();
-        userModel = null;
-        isLoggedIn = false;
-        break;
-      case ProfileFetchOutcome.transientError:
-        // خطأ مؤقت -> حافظ على الجلسة وادخل التطبيق، والبيانات هتتحدّث جوه
-        userModel = null;
-        isLoggedIn = true;
-        break;
-    }
-  }
-
-  // Initialize AppThemeProvider and load saved theme
-  final themeProvider = AppThemeProvider();
-  // تحميل الثيم المحفوظ
-  await themeProvider.loadTheme();
-
-  // 🔗 تهيئة الـ Deep Links (App Links / Universal Links)
-  // بنعملها قبل runApp عشان نمسك الرابط اللي فتح التطبيق وهو مقفول.
-  await DeepLinkService.instance.init(globalNavigatorKey);
-
-  runApp(
-    ChangeNotifierProvider.value(
-      value: themeProvider,
-      child: EasyLocalization(
-        supportedLocales: const [
-          Locale('ar'),
-          Locale('en'),
-        ],
-        startLocale: const Locale('ar'),
-        path: 'assets/translations',
-        fallbackLocale: const Locale('ar'),
-        child: MyApp(userModel: userModel, isLoggedIn: isLoggedIn),
-      ),
-    ),
-  );
 }
 
 Future<void> _clearCustomerSession() async {

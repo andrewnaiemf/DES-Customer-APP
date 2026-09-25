@@ -70,7 +70,7 @@ class StoryItem {
     required this.accentColor,
     required this.gradientColors,
     this.imagePath,
-    this.duration = const Duration(seconds: 3),
+    this.duration = const Duration(seconds: 2),
   });
 }
 

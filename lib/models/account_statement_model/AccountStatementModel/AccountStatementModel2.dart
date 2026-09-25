@@ -56,29 +56,33 @@ class AccountStatementModel2Data {
         this.total});
 
   AccountStatementModel2Data.fromJson(Map<String, dynamic> json) {
-    currentPage = json['current_page'];
+    currentPage = int.tryParse('${json['current_page'] ?? ''}');
     if (json['data'] != null) {
       data = <AccountStatementData>[];
       json['data'].forEach((v) {
-        data!.add(new AccountStatementData.fromJson(v));
+        if (v is Map) {
+          data!.add(AccountStatementData.fromJson(Map<String, dynamic>.from(v)));
+        }
       });
     }
-    firstPageUrl = json['first_page_url'];
-    from = json['from'];
-    lastPage = json['last_page'];
-    lastPageUrl = json['last_page_url'];
+    firstPageUrl = json['first_page_url']?.toString();
+    from = int.tryParse('${json['from'] ?? ''}');
+    lastPage = int.tryParse('${json['last_page'] ?? ''}');
+    lastPageUrl = json['last_page_url']?.toString();
     if (json['links'] != null) {
       links = <Links>[];
       json['links'].forEach((v) {
-        links!.add(new Links.fromJson(v));
+        if (v is Map) {
+          links!.add(Links.fromJson(Map<String, dynamic>.from(v)));
+        }
       });
     }
     nextPageUrl = json['next_page_url'];
-    path = json['path'];
-    perPage = json['per_page'];
+    path = json['path']?.toString();
+    perPage = json['per_page']?.toString();
     prevPageUrl = json['prev_page_url'];
-    to = json['to'];
-    total = json['total'];
+    to = int.tryParse('${json['to'] ?? ''}');
+    total = int.tryParse('${json['total'] ?? ''}');
   }
 
   Map<String, dynamic> toJson() {
@@ -184,28 +188,29 @@ class AccountStatementData {
     id = json['id'];
     contactId = json['contact_id'];
     salesRepresentativeId = json['sales_representative_id'];
-    reference = json['reference'];
-    description = json['description'];
-    issueDate = json['issue_date'];
-    dueDate = json['due_date'];
-    status = json['status'];
-    dueAmount = json['due_amount'];
-    paidAmount = json['paid_amount'];
-    total = json['total'];
-    notes = json['notes'];
-    pdf = json['pdf'];
-    termsConditions = json['terms_conditions'];
-    qrcodeString = json['qrcode_string'];
-    paymentMethod = json['payment_method'];
-    createdAt = json['created_at'];
-    updatedAt = json['updated_at'];
-    type = json['type'];
+    reference = json['reference']?.toString();
+    description = json['description']?.toString();
+    issueDate = json['issue_date']?.toString();
+    dueDate = json['due_date']?.toString();
+    status = json['status']?.toString();
+    dueAmount = json['due_amount']?.toString();
+    paidAmount = json['paid_amount']?.toString();
+    total = json['total']?.toString();
+    notes = json['notes']?.toString();
+    pdf = json['pdf']?.toString();
+    termsConditions = json['terms_conditions']?.toString();
+    qrcodeString = json['qrcode_string']?.toString();
+    paymentMethod = json['payment_method']?.toString();
+    createdAt = json['created_at']?.toString();
+    updatedAt = json['updated_at']?.toString();
+    type = json['type']?.toString();
     debit = json['debit'];
     credit = json['credit'];
-    date = json['date'];
-    contact =
-    json['contact'] != null ? new Contact.fromJson(json['contact']) : null;
-    invoiceStatus = json['invoice_status'];
+    date = json['date']?.toString();
+    contact = json['contact'] is Map
+        ? Contact.fromJson(Map<String, dynamic>.from(json['contact']))
+        : null;
+    invoiceStatus = json['invoice_status']?.toString();
     inventory = json['inventory'] != null
         ? new Inventory.fromJson(json['inventory'])
         : null;
@@ -216,16 +221,16 @@ class AccountStatementData {
         invoicePayments!.add(new InvoicePayments.fromJson(v));
       });
     }
-    amount = json['amount'];
-    kind = json['kind'];
+    amount = json['amount']?.toString();
+    kind = json['kind']?.toString();
     accountId = json['account_id'];
     unAllocateAmount = json['un_allocate_amount'];
     fromLocation = json['from_location'] != null
         ? new Inventory.fromJson(json['from_location'])
         : null;
-    issuanceReason = json['issuance_reason'];
-    totalAmount = json['total_amount'];
-    remainingAmount = json['remaining_amount'];
+    issuanceReason = json['issuance_reason']?.toString();
+    totalAmount = json['total_amount']?.toString();
+    remainingAmount = json['remaining_amount']?.toString();
     invoiceId = json['invoice_id'];
   }
 
@@ -346,7 +351,10 @@ class Contact {
     id = json['id'];
     categoryId = json['category_id'];
     customerClassificationId = json['customer_classification_id'];
-    deviceToken = json['device_token'].cast<String>();
+    final rawToken = json['device_token'];
+    deviceToken = rawToken is List
+        ? rawToken.map((e) => e.toString()).toList()
+        : null;
     locale = json['locale'];
     isAndroid = json['is_android'];
     name = json['name'];
@@ -466,7 +474,10 @@ class Branches {
     id = json['id'];
     categoryId = json['category_id'];
     customerClassificationId = json['customer_classification_id'];
-    deviceToken = json['device_token'].cast<String>();
+    final rawToken = json['device_token'];
+    deviceToken = rawToken is List
+        ? rawToken.map((e) => e.toString()).toList()
+        : null;
     locale = json['locale'];
     isAndroid = json['is_android'];
     name = json['name'];
@@ -719,9 +730,9 @@ class Links {
   Links({this.url, this.label, this.active});
 
   Links.fromJson(Map<String, dynamic> json) {
-    url = json['url'];
-    label = json['label'];
-    active = json['active'];
+    url = json['url']?.toString();
+    label = json['label']?.toString();
+    active = json['active'] == true;
   }
 
   Map<String, dynamic> toJson() {

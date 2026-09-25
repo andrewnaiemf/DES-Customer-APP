@@ -33,7 +33,7 @@ class OrdersServices {
       // وإلا استخدم query parameter per_page
       final useHeader = queryParams.isEmpty;
       if (useHeader) {
-        DioHelper.dio.options.headers.addAll({"per-page": 100}); // ✅ تقليل من 1000 إلى 100 لتحسين الأداء
+        DioHelper.dio.options.headers.addAll({"per-page": 20});
       }
       
       var result = await DioHelper.get(

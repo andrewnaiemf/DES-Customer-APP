@@ -24,8 +24,13 @@ if (flutterVersionName == null) {
 
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('key.properties')
+def hasReleaseKeystore = false
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    hasReleaseKeystore = keystoreProperties['storeFile'] &&
+            keystoreProperties['keyAlias'] &&
+            keystoreProperties['storePassword'] &&
+            keystoreProperties['keyPassword']
 }
 
 android {
@@ -51,7 +56,7 @@ android {
         applicationId "com.DES.DESUserApp"
         minSdkVersion 24
         multiDexEnabled true
-        targetSdkVersion 35
+        targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
 
@@ -69,11 +74,13 @@ android {
     }
 
     signingConfigs {
-        release {
-            keyAlias keystoreProperties['keyAlias']
-            keyPassword keystoreProperties['keyPassword']
-            storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-            storePassword keystoreProperties['storePassword']
+        if (hasReleaseKeystore) {
+            release {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
         }
     }
 
@@ -81,7 +88,23 @@ android {
         release {
             minifyEnabled false
             shrinkResources false
-            signingConfig signingConfigs.release
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            } else {
+                // Avoid NullPointerException in :app:signReleaseBundle when key.properties is missing.
+                // Play Store uploads still require the real upload keystore.
+                println '''
+============================================================
+WARNING: android/key.properties not found or incomplete.
+Release AAB will NOT be signed for Play Store.
+Create android/key.properties with:
+  storePassword=...
+  keyPassword=...
+  keyAlias=...
+  storeFile=/absolute/path/to/upload-keystore.jks
+============================================================
+'''
+            }
         }
     }
 

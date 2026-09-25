@@ -72,11 +72,14 @@ class ProductsCubit extends Cubit<ProductsState> {
 
 
   List<ProductModel> allProducts = [];
-  DateTime? _lastFetchTime; // ✅ Cache timer
+  DateTime? _lastFetchTime;
   static const Duration _cacheValidDuration = Duration(minutes: 10);
-  
+  static const int _perPage = 20;
+  int _currentPage = 1;
+  bool hasMore = true;
+  bool isLoadingMore = false;
+
   Future<void> getProducts({bool forceRefresh = false}) async {
-    // ✅ تجنب إعادة تحميل البيانات إذا الكاش صالح
     if (!forceRefresh && allProducts.isNotEmpty && _lastFetchTime != null &&
         DateTime.now().difference(_lastFetchTime!) < _cacheValidDuration) {
       return;
@@ -84,13 +87,37 @@ class ProductsCubit extends Cubit<ProductsState> {
     try {
       isLoadingData = true;
       emit(ProductsGetLoading());
-      allProducts = await ProductsServices.getData();
+      _currentPage = 1;
+      allProducts = await ProductsServices.getData(page: 1, perPage: _perPage);
+      hasMore = allProducts.length >= _perPage;
       _lastFetchTime = DateTime.now();
       isLoadingData = false;
       emit(ProductsGetSuccess());
     } catch (e) {
       log('$e');
       isLoadingData = false;
+      emit(ProductsGetError());
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (!hasMore || isLoadingMore || isLoadingData) return;
+    isLoadingMore = true;
+    emit(ProductsGetLoading());
+    try {
+      final nextPage = _currentPage + 1;
+      final items = await ProductsServices.getData(page: nextPage, perPage: _perPage);
+      if (items.isEmpty) {
+        hasMore = false;
+      } else {
+        allProducts.addAll(items);
+        _currentPage = nextPage;
+        hasMore = items.length >= _perPage;
+      }
+      isLoadingMore = false;
+      emit(ProductsGetSuccess());
+    } catch (e) {
+      isLoadingMore = false;
       emit(ProductsGetError());
     }
   }

@@ -38,7 +38,31 @@ class LineItemsModel {
     required this.updatedAt,
   });
 
-  factory LineItemsModel.fromJson(Map<String, dynamic> json) => _$LineItemsModelFromJson(json);
+  factory LineItemsModel.fromJson(Map<String, dynamic> json) {
+    String asString(dynamic value) => value?.toString() ?? '';
+    int asInt(dynamic value) {
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? 0;
+    }
+
+    DateTime asDate(dynamic value) =>
+        DateTime.tryParse(value?.toString() ?? '') ?? DateTime.now();
+
+    return LineItemsModel(
+      id: asInt(json['id']),
+      invoiceId: json['invoice_id'] == null ? null : asInt(json['invoice_id']),
+      productId: asInt(json['product_id']),
+      description: asString(json['description']),
+      quantity: asString(json['quantity'] ?? '0'),
+      unitPrice: asString(json['unit_price'] ?? json['unitPrice'] ?? '0'),
+      discount: asString(json['discount'] ?? '0'),
+      discountType: asString(json['discount_type'] ?? json['discountType'] ?? ''),
+      taxPercent: asString(json['tax_percent'] ?? json['taxPercent'] ?? '0'),
+      name: asString(json['name'] ?? json['product_name'] ?? ''),
+      createdAt: asDate(json['created_at']),
+      updatedAt: asDate(json['updated_at']),
+    );
+  }
 
   Map<String, dynamic> toJson() => _$LineItemsModelToJson(this);
 }

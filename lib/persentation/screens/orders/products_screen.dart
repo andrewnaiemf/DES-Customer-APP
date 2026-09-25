@@ -228,6 +228,10 @@ class _ProductsScreenState extends State<ProductsScreen>
 
   void _onScroll() {
     setState(() => _scrollOffset = _scrollController.offset);
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent * 0.8) {
+      ProductsCubit.get(context).loadMore();
+    }
   }
 
   void _onSearchFocusChange() {

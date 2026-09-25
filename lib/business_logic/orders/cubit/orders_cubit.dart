@@ -216,7 +216,7 @@ class OrdersCubit extends Cubit<OrdersState> {
       } else {
         // ✅ Fallback: Client-Side Pagination (الباك إند مش مدعوم pagination)
         log('⚠️ Server pagination not available, using client-side');
-        final fetchedOrders = await OrdersServices.getData();
+        final fetchedOrders = await OrdersServices.getData(page: 1, perPage: 20);
         
         // ✅ حفظ الطلبات الأصلية قبل الفلترة
         _unfilteredOrders = fetchedOrders;

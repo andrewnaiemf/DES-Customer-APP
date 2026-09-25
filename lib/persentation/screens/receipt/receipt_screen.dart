@@ -179,11 +179,10 @@ class _ReceiptScreenState extends State<ReceiptScreen>
                 const SizedBox(height: 4),
                 BlocBuilder<ReceiptCubit, ReceiptState>(
                   builder: (context, state) {
-                    // ✅ استخدام total من state بدلاً من allReceipt.length
-                    int count = ReceiptCubit.get(context).allReceipt.length;
-                    if (state is ReceiptGetSuccess) {
-                      count = state.total; // العدد الإجمالي من الباك إند
-                    }
+                    final cubit = ReceiptCubit.get(context);
+                    final count = cubit.totalReceipts > 0
+                        ? cubit.totalReceipts
+                        : cubit.allReceipt.length;
                     return Text(
                       '$count ${'bonds found'.tr()}',
                       style: TextStyle(
@@ -232,13 +231,11 @@ class _ReceiptScreenState extends State<ReceiptScreen>
   Widget _buildHeaderStats() {
     return BlocBuilder<ReceiptCubit, ReceiptState>(
       builder: (context, state) {
-        final receipts = ReceiptCubit.get(context).allReceipt;
-        
-        // ✅ استخدام total من state بدلاً من receipts.length
-        int totalReceipts = receipts.length;
-        if (state is ReceiptGetSuccess) {
-          totalReceipts = state.total; // العدد الإجمالي من الباك إند
-        }
+        final cubit = ReceiptCubit.get(context);
+        final receipts = cubit.allReceipt;
+        final totalReceipts = cubit.totalReceipts > 0
+            ? cubit.totalReceipts
+            : receipts.length;
         
         double totalAmount = _calculateTotalAmount(receipts);
 
@@ -288,7 +285,7 @@ class _ReceiptScreenState extends State<ReceiptScreen>
                       const SizedBox(height: 24),
 
                       // Total Amount
-                      _buildTotalAmount(receipts.length??0),
+                      _buildTotalAmount(totalReceipts),
                       // _buildTotalAmount(totalAmount),
                       const SizedBox(height: 20),
 
@@ -561,7 +558,11 @@ class _ReceiptScreenState extends State<ReceiptScreen>
               20,
               context.bottomSafePadding + kBottomNavigationBarHeight + 16,
             ),
-            itemCount: receipts.length + (state is ReceiptGetLoading && state.isLoadingMore ? 1 : 0),
+            itemCount: receipts.length +
+                ((state is ReceiptGetSuccess && state.isLoadingMore) ||
+                        (state is ReceiptGetLoading && state.isLoadingMore)
+                    ? 1
+                    : 0),
             itemBuilder: (context, index) {
               // Show loading indicator at the bottom
               if (index == receipts.length) {

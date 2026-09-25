@@ -8,29 +8,28 @@ import 'package:dio/dio.dart';
 
 class AccountStatementServices {
   Future<AccountStatementModel2?> getAccountStatementServices(String filter,String branch_id,) async {
-    print("branch_id $branch_id");
-    print("filter $filter");
-    print("filter $filter");
-    print("EndPoints ${EndPoints.accountStatement+"?branch_id=$branch_id&filter[date_range]=$filter"}");
-    final response = await DioHelper.get(path: EndPoints.accountStatement+"?branch_id=$branch_id&filter[date_range]=$filter",
-    //     queryParameters:{
-    //   "filter[date_range]": "$filter",
-    //   "branch_id": "$branch_id",
-    // },
-        options: Options(headers: {"per-page": 10000}));
-    final responseMap = response.data; // ✅ FIXED
+    log('account-statement filter=$filter branch_id=$branch_id');
+    final response = await DioHelper.get(
+      path: EndPoints.accountStatement,
+      queryParameters: {
+        'filter[date_range]': filter,
+        'branch_id': branch_id,
+        'per_page': 500,
+      },
+      options: Options(headers: {'per-page': 500}),
+    );
+    final responseMap = response.data;
 
-    // var responseMap = jsonDecode(response.data.toString());
-    if(response.statusCode! >= 200 &&response.statusCode! < 300){
-      print(response.data.toString());
-      print("getAccountStatementServices statusCode 200");
-      return AccountStatementModel2.fromJson(responseMap);
-      // return AccountStatementModel2.fromJson(responseMap);
-    }else{
-      print(response.toString());
-      print("Failed to getAccountStatementServices.");
-      return null;
+    if (response.statusCode != null &&
+        response.statusCode! >= 200 &&
+        response.statusCode! < 300 &&
+        responseMap is Map) {
+      return AccountStatementModel2.fromJson(
+        Map<String, dynamic>.from(responseMap),
+      );
     }
+    log('Failed to getAccountStatementServices: ${response.statusCode}');
+    return null;
   }
 
   // static String endPoint = EndPoints.accountStatement;

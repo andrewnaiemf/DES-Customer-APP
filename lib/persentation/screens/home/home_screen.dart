@@ -156,11 +156,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         });
       }
 
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted && !_isDisposed && _tourController != null) {
-          _tourController!.startHomeTour();
-        }
-      });
+      if (mounted && !_isDisposed && _tourController != null) {
+        _tourController!.startHomeTour();
+      }
     } catch (e) {
       print('❌ Error initializing HomeScreen: $e');
       if (mounted && !_isDisposed) {
@@ -258,7 +256,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       try {
         print('🔄 Fetching tracking update from API for: $orderId');
 
-        await OrdersServices.getData();
+        await OrdersServices.getData(page: 1, perPage: 20);
 
         final orderModel = OrdersServices.data.firstWhere(
               (order) => order.id.toString() == orderId || order.reference == orderId,
@@ -512,7 +510,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     HapticFeedback.mediumImpact();
     _loadData();
     _refreshTrackingData();
-    await Future.delayed(const Duration(milliseconds: 800));
   }
 
   Future<void> _launchBuyNowPayLater() async {

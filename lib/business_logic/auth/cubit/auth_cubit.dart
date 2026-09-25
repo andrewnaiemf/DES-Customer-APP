@@ -8,7 +8,6 @@ import 'package:app/models/user/user_model.dart';
 import 'package:app/network/dio_helper.dart';
 import 'package:app/persentation/screens/auth/login_screen.dart';
 import 'package:app/persentation/screens/layout/layout_screen.dart';
-import 'package:app/persentation/screens/splash/splash_screen.dart';
 import 'package:app/theme/colors.dart';
 import 'package:app/core/services/biometric_service.dart';
 import 'package:bloc/bloc.dart';
@@ -118,9 +117,6 @@ class AuthCubit extends Cubit<AuthState> {
     // ممكن هنا تضيف لو عندك حاجة تحدد إذا كان المستخدم مسجل دخول:
     await CacheHelper.setBool(key: "is_logged_in", value: false);
     await CacheHelper.removeKey(key: 'cached_user_json');
-
-    // إعادة تعيين حالة الـ Splash لعرضه في المرة القادمة
-    await SplashScreen.resetSplashState();
 
     // إعادة تهيئة Dio
     DioHelper.init();

@@ -310,26 +310,11 @@ class _ReportsScreenState extends State<ReportsScreen>
   }
 
   Widget _buildHeaderStats(double screenWidth) {
-    return Row(
-      children: [
-        Flexible(
-          child: _MiniStat(
-            icon: Icons.pie_chart_rounded,
-            value: '4',
-            label: 'Reports'.tr(),
-            screenWidth: screenWidth,
-          ),
-        ),
-        SizedBox(width: ResponsiveUtils.spacing(context, 16)),
-        Flexible(
-          child: _MiniStat(
-            icon: Icons.touch_app_rounded,
-            value: '',
-            label: 'Tap to explore'.tr(),
-            screenWidth: screenWidth,
-          ),
-        ),
-      ],
+    return _MiniStat(
+      icon: Icons.pie_chart_rounded,
+      value: '4',
+      label: 'Reports'.tr(),
+      screenWidth: screenWidth,
     );
   }
 

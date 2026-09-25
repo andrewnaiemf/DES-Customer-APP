@@ -190,7 +190,7 @@ class _WarrantyMainScreenState extends State<WarrantyMainScreen>
     _loadingTimer?.cancel();
     setState(() => _isLoading = true);
 
-    _loadingTimer = Timer(const Duration(milliseconds: 1200), () {
+    _loadingTimer = Timer(const Duration(milliseconds: 200), () {
       if (!mounted) return;
       setState(() => _isLoading = false);
       _fadeController.forward(from: 0);

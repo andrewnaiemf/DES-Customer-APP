@@ -648,14 +648,17 @@ class _AccountStatementScreenState extends State<AccountStatementScreen>
                   }
 
                   HapticFeedback.mediumImpact();
-                  await AccountStatementCubit.get(context)
-                      .getAccountStatementServices(
+                  final cubit = AccountStatementCubit.get(context);
+                  await cubit.getAccountStatementServices(
                     context: context,
                     fromDateTime: selectedDate1,
                     toDateTime: selectedDate2,
-                    brancheModel:
-                    AccountStatementCubit.get(context).selectedBranch!,
+                    brancheModel: cubit.selectedBranch!,
                   );
+                  if (!context.mounted) return;
+                  if (cubit.state is GetAccountStatementError) {
+                    _showValidationError('Failed to load data'.tr());
+                  }
                 }
               },
               child: AnimatedContainer(

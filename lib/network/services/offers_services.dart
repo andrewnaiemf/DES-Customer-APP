@@ -25,11 +25,10 @@ class OffersServices {
   }
   Future<OffersModel?> getOffers() async {
     try {
-      final response = await DioHelper.get(path: EndPoints.getOffers,options: Options(
-        headers: {
-          "per-page":1000
-        }
-      ));
+      final response = await DioHelper.get(
+        path: EndPoints.getOffers,
+        queryParameters: {'page': 1, 'per_page': 20},
+      );
 
       if (response.statusCode! >= 200 && response.statusCode! < 300) {
         print('✅ getOffers successfully');

@@ -7,24 +7,24 @@ class Constants {
 }
 
 class ApiConstants {
-  // 🌐 Production (TestFlight / App Store)
-  // Server path: /var/www/html/retail
-  static const baseURL = 'https://destrading.online';
-  static const baseURL2 = 'https://destrading.online/api/';
-  static const stoarge = 'https://destrading.online/storage/';
-  static const warrantyBaseURL = 'https://destrading.online';
+  // 🧪 DEV (TestFlight testing)
+  // Server path: /var/www/html/retail_dev
+  static const baseURL = 'https://dev.destrading.online';
+  static const baseURL2 = 'https://dev.destrading.online/api/';
+  static const stoarge = 'https://dev.destrading.online/storage/';
+  static const warrantyBaseURL = 'https://dev.destrading.online';
 
-  // 🧪 DEV:
-  // static const baseURL = 'https://dev.destrading.online';
-  // static const baseURL2 = 'https://dev.destrading.online/api/';
-  // static const stoarge = 'https://dev.destrading.online/storage/';
-  // static const warrantyBaseURL = 'https://dev.destrading.online';
+  // 🖥️ Local backend (/var/www/html/retail) — emulator uses 10.0.2.2
+  // static const baseURL = 'http://10.0.2.2:8000';
+  // static const baseURL2 = 'http://10.0.2.2:8000/api/';
+  // static const stoarge = 'http://10.0.2.2:8000/storage/';
+  // static const warrantyBaseURL = 'http://10.0.2.2:8000';
 
-  // 🖥️ Local backend (/var/www/html/retail):
-  // static const baseURL = 'http://localhost:8000';
-  // static const baseURL2 = 'http://localhost:8000/api/';
-  // static const stoarge = 'http://localhost:8000/storage/';
-  // static const warrantyBaseURL = 'http://localhost:8000';
+  // 🌐 Production:
+  // static const baseURL = 'https://destrading.online';
+  // static const baseURL2 = 'https://destrading.online/api/';
+  // static const stoarge = 'https://destrading.online/storage/';
+  // static const warrantyBaseURL = 'https://destrading.online';
 }
 
 class EndPoints {

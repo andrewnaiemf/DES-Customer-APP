@@ -71,13 +71,17 @@ class AccountStatementCubit extends Cubit<AccountStatementState> {
     required BrancheModel brancheModel,
   }) async {
     try {
+      isLoadingAction = true;
       emit(GetAccountStatementLoading());
 
+      final from = _ymd(fromDateTime);
+      final to = _ymd(toDateTime);
       final value = await accountStatementServices.getAccountStatementServices(
-        "${fromDateTime.year}-${fromDateTime.month}-${fromDateTime.day},${toDateTime.year}-${toDateTime.month}-${toDateTime.day}",
+        "$from,$to",
         "${brancheModel.id}",
       );
 
+      isLoadingAction = false;
       if (value != null) {
         allAccountStatements2 = value.data?.data ?? [];
 
@@ -87,10 +91,7 @@ class AccountStatementCubit extends Cubit<AccountStatementState> {
         MyNavigator.navigateTo(
           context,
           AccountStatementDetailsScreen(
-            fromTo: [
-              "${fromDateTime.year}-${fromDateTime.month}-${fromDateTime.day}",
-              "${toDateTime.year}-${toDateTime.month}-${toDateTime.day}"
-            ],
+            fromTo: [from, to],
           ),
         );
 
@@ -101,6 +102,7 @@ class AccountStatementCubit extends Cubit<AccountStatementState> {
     } catch (e, s) {
       log("ERROR: $e");
       log("STACK: $s");
+      isLoadingAction = false;
       emit(GetAccountStatementError());
     }
   }
@@ -128,9 +130,9 @@ class AccountStatementCubit extends Cubit<AccountStatementState> {
   //   } catch (e) {
   //     emit(GetAccountStatementError());
   //   }
-  //   return null;
-  // }
-
-
-
+  String _ymd(DateTime date) {
+    final month = date.month.toString().padLeft(2, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    return '${date.year}-$month-$day';
+  }
 }

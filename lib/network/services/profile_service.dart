@@ -160,13 +160,37 @@ class ProfileServices {
       DioHelper.init();
       final response = await DioHelper.get(
         path: EndPoints.accountAgreement,
-        options: Options(responseType: ResponseType.bytes),
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {
+            'Accept': 'application/pdf, application/json',
+          },
+        ),
       );
-      if (response.statusCode != 200) return null;
       final data = response.data;
-      if (data is Uint8List) return data;
-      if (data is List<int>) return Uint8List.fromList(data);
-      return null;
+      Uint8List? bytes;
+      if (data is Uint8List) {
+        bytes = data;
+      } else if (data is List<int>) {
+        bytes = Uint8List.fromList(data);
+      }
+      if (response.statusCode != 200 || bytes == null || bytes.isEmpty) {
+        log(
+          'fetchAccountAgreementPdf failed: status=${response.statusCode}, '
+          'bytes=${bytes?.length ?? 0}',
+        );
+        return null;
+      }
+      // Reject JSON error payloads returned as bytes.
+      if (bytes.length >= 4) {
+        final head = String.fromCharCodes(bytes.take(4));
+        if (head.startsWith('%PDF')) return bytes;
+        if (head.startsWith('{') || head.startsWith('<')) {
+          log('fetchAccountAgreementPdf non-PDF body: ${utf8.decode(bytes, allowMalformed: true).substring(0, bytes.length.clamp(0, 200))}');
+          return null;
+        }
+      }
+      return bytes;
     } catch (e) {
       log('fetchAccountAgreementPdf: $e');
       return null;

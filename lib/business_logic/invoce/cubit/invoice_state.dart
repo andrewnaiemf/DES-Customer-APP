@@ -30,6 +30,7 @@ final class InVoiceGetSuccess extends InVoiceState {
   final int lastPage;
   final int total;
   final bool hasMore;
+  final bool isLoadingMore;
   final String? activeFilter;
   final DateTime lastUpdated;
 
@@ -38,6 +39,7 @@ final class InVoiceGetSuccess extends InVoiceState {
     required this.lastPage,
     required this.total,
     required this.hasMore,
+    this.isLoadingMore = false,
     this.activeFilter,
     required this.lastUpdated,
   });
@@ -47,6 +49,7 @@ final class InVoiceGetSuccess extends InVoiceState {
     int? lastPage,
     int? total,
     bool? hasMore,
+    bool? isLoadingMore,
     String? activeFilter,
     DateTime? lastUpdated,
   }) {
@@ -55,6 +58,7 @@ final class InVoiceGetSuccess extends InVoiceState {
       lastPage: lastPage ?? this.lastPage,
       total: total ?? this.total,
       hasMore: hasMore ?? this.hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       activeFilter: activeFilter ?? this.activeFilter,
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );

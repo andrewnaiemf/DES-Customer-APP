@@ -8,13 +8,16 @@ import 'package:app/network/dio_helper.dart';
 
 class LoyalityServices{
   Future<LoyaltyPointsModel?> getLoyalityPoints() async {
-    final response = await DioHelper.get(path: EndPoints.loyalityPoints,
-        data: {"per-page": 1000});
-    var responseMap = jsonDecode(response.toString());
+    final response = await DioHelper.get(
+      path: EndPoints.loyalityPoints,
+      queryParameters: {'page': 1, 'per_page': 20},
+    );
     if(response.statusCode! >= 200 &&response.statusCode! < 300){
-      print(response.toString());
       print("getLoyalityPoints statusCode 200");
-      return LoyaltyPointsModel.fromJson(responseMap);
+      final payload = response.data is Map
+          ? Map<String, dynamic>.from(response.data)
+          : jsonDecode(response.toString());
+      return LoyaltyPointsModel.fromJson(payload);
     }else{
       print(response.toString());
       print("Failed to getLoyalityPoints.");

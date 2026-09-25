@@ -1,7 +1,9 @@
 import 'dart:developer';
+import 'dart:typed_data';
 import 'package:app/data/constants/api_constants.dart';
 import 'package:app/models/invoice/invoice_model.dart';
 import 'package:app/network/dio_helper.dart';
+import 'package:dio/dio.dart';
 
 class InVoiceServices {
   static String endPoint = EndPoints.invoices;
@@ -23,16 +25,10 @@ class InVoiceServices {
       if (status != null) queryParams['status'] = status;
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
       
-      if (queryParams.isEmpty) {
-        DioHelper.dio.options.headers.addAll({"per-page": 1000});
-      }
-      
       var result = await DioHelper.get(
         path: endPoint,
         queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
-      
-      DioHelper.dio.options.headers.remove('per-page');
 
       if (result.statusCode == 200) {
         log('Get $endPoint Success');
@@ -90,7 +86,20 @@ class InVoiceServices {
 
       if (result.statusCode == 200) {
         log('✅ Get Paginated $endPoint Success');
-        return result.data['data'];
+        final payload = result.data['data'];
+        if (payload is Map) {
+          return Map<String, dynamic>.from(payload);
+        }
+        if (payload is List) {
+          return {
+            'data': payload,
+            'current_page': page,
+            'last_page': 1,
+            'total': payload.length,
+            'next_page_url': null,
+          };
+        }
+        return null;
       } else {
         log('❌ Unable To Get Paginated $endPoint');
         return null;
@@ -99,5 +108,50 @@ class InVoiceServices {
       log('❌ Error in getPaginatedInvoices: $e');
       return null;
     }
+  }
+
+  static Future<List<int>?> downloadPdfBytes(int id) async {
+    try {
+      final result = await DioHelper.get(
+        path: '$endPoint/$id/pdf',
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(seconds: 90),
+        ),
+      );
+      if (result.statusCode != 200 || result.data == null) {
+        return null;
+      }
+      final data = result.data;
+      List<int>? bytes;
+      if (data is Uint8List) {
+        bytes = data;
+      } else if (data is List<int>) {
+        bytes = data;
+      }
+      if (bytes == null || bytes.length < 4) {
+        return null;
+      }
+      if (bytes[0] == 0x25 && bytes[1] == 0x50 && bytes[2] == 0x44 && bytes[3] == 0x46) {
+        return bytes;
+      }
+    } catch (e) {
+      log('❌ Error in downloadPdfBytes: $e');
+    }
+    return null;
+  }
+
+  static Future<InVoiceModel?> getById(int id) async {
+    try {
+      final result = await DioHelper.get(path: '$endPoint/$id');
+      if (result.statusCode == 200 && result.data['data'] is Map) {
+        return InVoiceModel.fromJson(
+          Map<String, dynamic>.from(result.data['data']),
+        );
+      }
+    } catch (e) {
+      log('❌ Error in getById: $e');
+    }
+    return null;
   }
 }

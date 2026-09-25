@@ -7,7 +7,24 @@ import 'package:permission_handler/permission_handler.dart';
 
 
 class DownloadPDFClass {
-  static Future<String> downloadPDF(String name, String url) async {
+    static Future<String> savePdfBytes(String name, List<int> bytes) async {
+      Directory? directory;
+
+      if (Platform.isAndroid) {
+        directory = await getExternalStorageDirectory();
+      } else if (Platform.isIOS) {
+        directory = await getApplicationDocumentsDirectory();
+      }
+
+      final filePath = '${directory!.path}/$name.pdf';
+      final pdfFile = File(filePath);
+      await pdfFile.writeAsBytes(bytes, flush: true);
+      print('PDF downloaded to: $filePath');
+      await OpenFile.open(pdfFile.path);
+      return filePath;
+    }
+
+    static Future<String> downloadPDF(String name, String url) async {
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {

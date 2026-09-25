@@ -12,13 +12,12 @@ class ReceiptCubit extends Cubit<ReceiptState> {
 
   static ReceiptCubit get(BuildContext context) => BlocProvider.of(context);
 
-  // Pagination constants
   static const int _receiptsPerPage = 20;
   static const Duration _cacheValidDuration = Duration(minutes: 5);
 
-  // Pagination state
   bool isLoadingData = false;
   List<ReceiptModel> allReceipt = [];
+  int totalReceipts = 0;
   int _currentPage = 1;
   bool _hasMore = true;
   String? _currentFilter;
@@ -26,62 +25,37 @@ class ReceiptCubit extends Cubit<ReceiptState> {
   DateTime? _lastFetchTime;
   Timer? _searchDebounce;
 
-  // Original method - kept for backward compatibility
-  Future<void> getReceipt_OLD() async {
-    try {
-      isLoadingData = true;
-      emit(ReceiptGetLoading(isFirstLoad: true));
-      allReceipt = await ReceiptsServices.getData();
-      isLoadingData = false;
-      emit(ReceiptGetSuccess(
-        currentPage: 1,
-        lastPage: 1,
-        total: allReceipt.length,
-        hasMore: false,
-        lastUpdated: DateTime.now(),
-      ));
-    } catch (e) {
-      log('Error in getReceipt_OLD: $e');
-      isLoadingData = false;
-      emit(ReceiptGetError(message: e.toString()));
-    }
-  }
-
-  /// Main method to get receipts - Without Pagination (loads all data)
   Future<void> getReceipts({
     bool forceRefresh = false,
     String? status,
   }) async {
+    if (!forceRefresh &&
+        _isCacheValid() &&
+        status == _currentFilter &&
+        allReceipt.isNotEmpty) {
+      return;
+    }
+
+    _currentFilter = status;
+    _currentPage = 1;
+    _hasMore = true;
+    allReceipt.clear();
+
+    isLoadingData = true;
+    emit(ReceiptGetLoading(isFirstLoad: true));
+
     try {
-      // Check cache validity
-      if (!forceRefresh && _isCacheValid()) {
-        log('Using cached receipt data');
-        return;
-      }
-
-      _currentFilter = status;
-      allReceipt.clear();
-
-      isLoadingData = true;
-      emit(ReceiptGetLoading(isFirstLoad: true));
-
-      // ✅ استخدام الـ method القديمة بدون pagination
-      allReceipt = await ReceiptsServices.getData();
-
+      final page = await _loadPage(1);
       _lastFetchTime = DateTime.now();
-      _hasMore = false; // لا يوجد المزيد (كل البيانات محملة)
-
       isLoadingData = false;
       emit(ReceiptGetSuccess(
-        currentPage: 1,
-        lastPage: 1,
-        total: allReceipt.length,
-        hasMore: false,
+        currentPage: _currentPage,
+        lastPage: page.lastPage,
+        total: page.total,
+        hasMore: _hasMore,
         activeFilter: status,
         lastUpdated: _lastFetchTime!,
       ));
-
-      log('📄 All receipts loaded: ${allReceipt.length}');
     } catch (e) {
       log('❌ Error in getReceipts: $e');
       isLoadingData = false;
@@ -92,21 +66,92 @@ class ReceiptCubit extends Cubit<ReceiptState> {
     }
   }
 
-  /// Load more receipts (DISABLED - all data loaded at once)
   Future<void> loadMore() async {
-    // ❌ Pagination disabled - all data is loaded in getReceipts()
-    return;
+    if (!_hasMore || isLoadingData) return;
+
+    isLoadingData = true;
+    if (state is ReceiptGetSuccess) {
+      emit((state as ReceiptGetSuccess).copyWith(isLoadingMore: true));
+    }
+
+    try {
+      final page = await _loadPage(_currentPage + 1);
+      isLoadingData = false;
+      emit(ReceiptGetSuccess(
+        currentPage: _currentPage,
+        lastPage: page.lastPage,
+        total: page.total,
+        hasMore: _hasMore,
+        isLoadingMore: false,
+        activeFilter: _currentFilter,
+        lastUpdated: DateTime.now(),
+      ));
+    } catch (e) {
+      log('❌ Error in receipt loadMore: $e');
+      isLoadingData = false;
+      if (state is ReceiptGetSuccess) {
+        emit((state as ReceiptGetSuccess).copyWith(isLoadingMore: false));
+      }
+    }
   }
 
-  /// Filter receipts by status
+  Future<({int lastPage, int total})> _loadPage(int page) async {
+    final result = await ReceiptsServices.getPaginatedReceipts(
+      page: page,
+      perPage: _receiptsPerPage,
+      status: _currentFilter,
+      search: _currentSearchQuery,
+    );
+
+    List<ReceiptModel> items = [];
+    int lastPage = page;
+    int total = totalReceipts;
+    bool hasMore = false;
+
+    if (result != null) {
+      final raw = result['data'];
+      final list = raw is List ? raw : const [];
+      items = list
+          .whereType<Map>()
+          .map((e) => ReceiptModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      lastPage = int.tryParse('${result['last_page'] ?? page}') ?? page;
+      final parsedTotal = int.tryParse('${result['total'] ?? ''}') ?? 0;
+      if (parsedTotal > 0) {
+        total = parsedTotal;
+      } else if (total <= 0) {
+        total = (page == 1 ? items.length : allReceipt.length + items.length);
+      }
+      hasMore = result['next_page_url'] != null || page < lastPage;
+    } else {
+      items = await ReceiptsServices.getData(
+        page: page,
+        perPage: _receiptsPerPage,
+        status: _currentFilter,
+        search: _currentSearchQuery,
+      );
+      hasMore = items.length >= _receiptsPerPage;
+      if (total <= 0) {
+        total = (page == 1 ? items.length : allReceipt.length + items.length);
+      }
+    }
+
+    if (page == 1) {
+      allReceipt = items;
+    } else {
+      allReceipt.addAll(items);
+    }
+    _currentPage = page;
+    _hasMore = hasMore && items.isNotEmpty;
+    totalReceipts = total;
+    return (lastPage: lastPage, total: total);
+  }
+
   Future<void> filterByStatus(String? status) async {
     if (_currentFilter == status) return;
-    
-    log('🔍 Filtering receipts by status: $status');
     await getReceipts(forceRefresh: true, status: status);
   }
 
-  /// Search receipts with debounce
   void searchReceipts(String query) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
@@ -115,92 +160,63 @@ class ReceiptCubit extends Cubit<ReceiptState> {
   }
 
   Future<void> _performSearch(String query) async {
-    if (_currentSearchQuery == query) return;
-
-    _currentSearchQuery = query.isEmpty ? null : query;
-    log('🔍 Searching receipts: "$query"');
-
-    await getReceipts(
-      forceRefresh: true,
-      status: _currentFilter,
-    );
+    final normalized = query.isEmpty ? null : query;
+    if (_currentSearchQuery == normalized) return;
+    _currentSearchQuery = normalized;
+    await getReceipts(forceRefresh: true, status: _currentFilter);
   }
 
-  /// Refresh receipts (pull-to-refresh)
   Future<void> refresh() async {
     emit(ReceiptGetLoading(isRefreshing: true));
     await getReceipts(forceRefresh: true, status: _currentFilter);
   }
 
-  /// Update a single receipt in the list
   void updateReceipt(ReceiptModel updatedReceipt) {
     final index = allReceipt.indexWhere((rec) => rec.id == updatedReceipt.id);
     if (index != -1) {
       allReceipt[index] = updatedReceipt;
-      
       if (state is ReceiptGetSuccess) {
-        final currentState = state as ReceiptGetSuccess;
-        emit(currentState.copyWith(lastUpdated: DateTime.now()));
+        emit((state as ReceiptGetSuccess).copyWith(lastUpdated: DateTime.now()));
       }
-      
-      log('✅ Receipt updated: ${updatedReceipt.id}');
     }
   }
 
-  /// Add new receipt to the list
   void addReceiptToList(ReceiptModel newReceipt) {
     allReceipt.insert(0, newReceipt);
-    
     if (state is ReceiptGetSuccess) {
       final currentState = state as ReceiptGetSuccess;
+      totalReceipts = currentState.total + 1;
       emit(currentState.copyWith(
-        total: currentState.total + 1,
+        total: totalReceipts,
         lastUpdated: DateTime.now(),
       ));
     }
-    
-    log('✅ Receipt added: ${newReceipt.id}');
   }
 
-  /// Remove receipt from the list
   void removeReceiptFromList(int receiptId) {
     final initialLength = allReceipt.length;
     allReceipt.removeWhere((rec) => rec.id == receiptId);
     final removed = initialLength - allReceipt.length;
-    
     if (removed > 0 && state is ReceiptGetSuccess) {
       final currentState = state as ReceiptGetSuccess;
       emit(currentState.copyWith(
         total: currentState.total - removed,
         lastUpdated: DateTime.now(),
       ));
-      
-      log('✅ Receipt removed: $receiptId');
     }
   }
 
-  /// Apply client-side filter (for fallback)
-  /// Note: ReceiptModel doesn't have status field, filter by kind instead if needed
-  List<ReceiptModel> _applyFilter(List<ReceiptModel> receipts, String? filterValue) {
-    if (filterValue == null || filterValue.isEmpty) return receipts;
-    // Can filter by 'kind' field if needed in the future
-    return receipts;
-  }
-
-  /// Check if cache is still valid
   bool _isCacheValid() {
     if (_lastFetchTime == null) return false;
-    final difference = DateTime.now().difference(_lastFetchTime!);
-    return difference < _cacheValidDuration;
+    return DateTime.now().difference(_lastFetchTime!) < _cacheValidDuration;
   }
 
-  /// Clear cache and force refresh
   void clearCache() {
     _lastFetchTime = null;
     allReceipt.clear();
+    totalReceipts = 0;
     _currentPage = 1;
     _hasMore = true;
-    log('🗑️ Receipt cache cleared');
   }
 
   @override

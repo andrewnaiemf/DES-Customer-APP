@@ -59,6 +59,7 @@ class LayoutScreen extends StatefulWidget {
 class _LayoutScreenState extends State<LayoutScreen> with TickerProviderStateMixin {
   late AnimationController _mainController;
   bool _forceEnter = false;
+  final Set<int> _visitedTabs = {0};
 
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   bool get _isRTL => context.locale.languageCode == 'ar';
@@ -81,7 +82,7 @@ class _LayoutScreenState extends State<LayoutScreen> with TickerProviderStateMix
     });
 
     // 🚀 Safety Timer: Force enter after 1.2s to prevent getting stuck
-    Future.delayed(const Duration(milliseconds: 1200), () {
+    Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) setState(() => _forceEnter = true);
     });
   }
@@ -173,17 +174,20 @@ class _LayoutScreenState extends State<LayoutScreen> with TickerProviderStateMix
   }
 
   Widget _buildMainContent(LayoutCubit cubit) {
+    _visitedTabs.add(cubit.bottomNavBarIndex);
     return IndexedStack(
       index: cubit.bottomNavBarIndex,
       children: [
         const HomeScreen(),
-        const OrdersScreen(),
-        const ReportsScreen(),
-        WarrantyMainScreen(
-          key: const ValueKey('warranty'),
-          isActive: cubit.bottomNavBarIndex == 3,
-        ),
-        const ProfileScreen(),
+        _visitedTabs.contains(1) ? const OrdersScreen() : const SizedBox.shrink(),
+        _visitedTabs.contains(2) ? const ReportsScreen() : const SizedBox.shrink(),
+        _visitedTabs.contains(3)
+            ? WarrantyMainScreen(
+                key: const ValueKey('warranty'),
+                isActive: cubit.bottomNavBarIndex == 3,
+              )
+            : const SizedBox.shrink(),
+        _visitedTabs.contains(4) ? const ProfileScreen() : const SizedBox.shrink(),
       ],
     );
   }

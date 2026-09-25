@@ -7,12 +7,16 @@ import 'package:app/network/dio_helper.dart';
 
 class NotificationsServices{
   Future<NotificationsModel?> getNotifications() async {
-    final response = await DioHelper.get(path: EndPoints.notifications,data: {"per-page": 1000});
-    var responseMap = jsonDecode(response.toString());
+    final response = await DioHelper.get(
+      path: EndPoints.notifications,
+      queryParameters: {'page': 1, 'per_page': 20},
+    );
     if(response.statusCode! >= 200 &&response.statusCode! < 300){
-      print(response.toString());
       print("getNotifications statusCode 200");
-      return NotificationsModel.fromJson(responseMap);
+      final payload = response.data is Map
+          ? Map<String, dynamic>.from(response.data)
+          : jsonDecode(response.toString());
+      return NotificationsModel.fromJson(payload);
     }else{
       print(response.toString());
       print("Failed to getNotifications.");

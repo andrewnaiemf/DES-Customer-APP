@@ -57,7 +57,61 @@ class InVoiceModel {
     this.owner,
   });
 
-  factory InVoiceModel.fromJson(Map<String, dynamic> json) => _$InVoiceModelFromJson(json);
+  factory InVoiceModel.fromJson(Map<String, dynamic> json) {
+    String? asString(dynamic value) => value == null ? null : value.toString();
+    final normalized = Map<String, dynamic>.from(json);
+    for (final key in ['due_amount', 'paid_amount', 'total', 'payment_method', 'issue_date', 'due_date']) {
+      if (normalized.containsKey(key)) {
+        normalized[key] = asString(normalized[key]);
+      }
+    }
+
+    final rawItems = normalized['line_items'];
+    if (rawItems is List) {
+      normalized['line_items'] = rawItems.whereType<Map>().map((item) {
+        final mapped = Map<String, dynamic>.from(item);
+        for (final key in [
+          'quantity',
+          'unit_price',
+          'discount',
+          'tax_percent',
+          'description',
+          'name',
+          'discount_type',
+        ]) {
+          if (mapped[key] != null) {
+            mapped[key] = mapped[key].toString();
+          }
+        }
+        mapped['product_id'] ??= 0;
+        return mapped;
+      }).toList();
+    }
+
+    try {
+      return _$InVoiceModelFromJson(normalized);
+    } catch (_) {
+      final fallback = _$InVoiceModelFromJson({
+        ...normalized,
+        'line_items': null,
+        'contact': null,
+        'owner': null,
+        'payments': null,
+      });
+      if (rawItems is List) {
+        fallback.lineItems = [];
+        for (final item in rawItems) {
+          if (item is! Map) continue;
+          try {
+            fallback.lineItems!.add(
+              LineItemsModel.fromJson(Map<String, dynamic>.from(item)),
+            );
+          } catch (_) {}
+        }
+      }
+      return fallback;
+    }
+  }
 
   Map<String, dynamic> toJson() => _$InVoiceModelToJson(this);
 }

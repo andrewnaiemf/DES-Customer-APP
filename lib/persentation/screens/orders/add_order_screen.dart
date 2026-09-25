@@ -1054,7 +1054,7 @@ class _AddOrderScreenState extends State<AddOrderScreen>
                       // Summary Items
                       _buildSummaryItem(
                         icon: Icons.shopping_cart_outlined,
-                        label: 'Total'.tr(),
+                        label: 'الإجمالي'.tr(),
                         value: '${ProductsCubit.get(context).totalPrice}',
                         currencyWidget: context.getCurrencyWidget(
                           height: ResponsiveUtils.font(context, 25),
@@ -1439,7 +1439,7 @@ class _AddOrderScreenState extends State<AddOrderScreen>
             ),
             SizedBox(width: ResponsiveUtils.spacing(context, 6)),
             Text(
-              'Total Amount'.tr(),
+              'المبلغ الإجمالي'.tr(),
               style: TextStyle(
                 fontSize: ResponsiveUtils.font(context, 12),
                 fontWeight: FontWeight.w500,

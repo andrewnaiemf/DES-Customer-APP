@@ -120,6 +120,7 @@ class _InVoiceScreenState extends State<InVoiceScreen>
               children: [
                 _buildAppBar(),
                 _buildStatsHeader(),
+                _buildStatusFilters(),
                 Expanded(child: _buildInvoiceList()),
               ],
             ),
@@ -141,41 +142,13 @@ class _InVoiceScreenState extends State<InVoiceScreen>
           _buildBackButton(),
           SizedBox(width: ResponsiveUtils.spacing(context, 12)),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Invoices'.tr(),
-                  style: TextStyle(
-                    fontSize: ResponsiveUtils.font(context, 22),
-                    fontWeight: FontWeight.bold,
-                    color: _isDark ? Colors.white : AppTheme.black,
-                  ),
-                ),
-                SizedBox(height: ResponsiveUtils.spacing(context, 3)),
-                BlocBuilder<InVoiceCubit, InVoiceState>(
-                  builder: (context, state) {
-                    int count = InVoiceCubit.get(context).allInVoice.length;
-                    int total = count;
-
-                    if (state is InVoiceGetSuccess) {
-                      total = state.total;
-                    }
-
-                    String displayText = total > count
-                      ? '$count of $total ${'invoices'.tr()}'
-                      : '$count ${'invoices found'.tr()}';
-
-                    return Text(
-                      displayText,
-                      style: TextStyle(
-                        fontSize: ResponsiveUtils.font(context, 12),
-                        color: _isDark ? AppTheme.darkGray : Colors.grey[599],
-                      ),
-                    );
-                  },
-                ),
-              ],
+            child: Text(
+              'Invoices'.tr(),
+              style: TextStyle(
+                fontSize: ResponsiveUtils.font(context, 22),
+                fontWeight: FontWeight.bold,
+                color: _isDark ? Colors.white : AppTheme.black,
+              ),
             ),
           ),
           _buildMenuButton(),
@@ -238,7 +211,14 @@ class _InVoiceScreenState extends State<InVoiceScreen>
   Widget _buildStatsHeader() {
     return BlocBuilder<InVoiceCubit, InVoiceState>(
       builder: (context, state) {
-        final invoices = InVoiceCubit.get(context).allInVoice;
+        final cubit = InVoiceCubit.get(context);
+        final invoices = cubit.allInVoice;
+        int invoiceCount = cubit.activeFilter == null
+            ? (cubit.statusCounts['all'] ?? cubit.totalInvoices)
+            : cubit.totalInvoices;
+        if (invoiceCount <= 0) {
+          invoiceCount = cubit.totalInvoices;
+        }
         double totalAmount = _calculateTotalAmount(invoices);
 
         // ========== DARK MODE ==========
@@ -266,7 +246,7 @@ class _InVoiceScreenState extends State<InVoiceScreen>
               iconColor: AppTheme.purple,
               label: 'Total Invoice Count'.tr(),
               // label: 'Total Value'.tr(),
-              value: '${invoices.length} ${"invoice".tr()}',
+              value: '$invoiceCount ${"invoice".tr()}',
               // value: '${totalAmount.toStringAsFixed(0)} ${"SAR".tr()}',
               isLarge: true,
             ),
@@ -382,7 +362,7 @@ class _InVoiceScreenState extends State<InVoiceScreen>
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            invoices.length.toString(),
+                            invoiceCount.toString(),
                             // totalAmount.toStringAsFixed(0),
                             style: TextStyle(
                               fontSize: ResponsiveUtils.font(context, 38),
@@ -442,13 +422,13 @@ class _InVoiceScreenState extends State<InVoiceScreen>
                           // SizedBox(width: 27.99993),
                           _buildMiniStat(
                             icon: Icons.check_circle_outline_rounded,
-                            value: '${_countByStatus(invoices, 'paid')}',
+                            value: '${cubit.statusCounts['paid'] ?? 0}',
                             label: 'Paid'.tr(),
                           ),
                           SizedBox(width: 27.99993),
                           _buildMiniStat(
                             icon: Icons.pending_outlined,
-                            value: '${_countByStatus(invoices, 'pending')}',
+                            value: '${cubit.statusCounts['unpaid'] ?? 0}',
                             label: 'Pending'.tr(),
                           ),
                         ],
@@ -514,6 +494,109 @@ class _InVoiceScreenState extends State<InVoiceScreen>
                 ),
               ],
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatusFilters() {
+    final filters = <({String? status, String label, String countKey})>[
+      (status: null, label: 'All', countKey: 'all'),
+      (status: 'paid', label: 'Paid', countKey: 'paid'),
+      (status: 'unpaid', label: 'Pending', countKey: 'unpaid'),
+      (status: 'return', label: 'Return', countKey: 'return'),
+      (status: 'partial_return', label: 'Partial Return', countKey: 'partial_return'),
+    ];
+
+    return BlocBuilder<InVoiceCubit, InVoiceState>(
+      builder: (context, state) {
+        final cubit = InVoiceCubit.get(context);
+        final active = cubit.activeFilter;
+
+        return SizedBox(
+          height: ResponsiveUtils.spacing(context, 44),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(
+              horizontal: ResponsiveUtils.spacing(context, 16),
+              vertical: ResponsiveUtils.spacing(context, 4),
+            ),
+            itemCount: filters.length,
+            separatorBuilder: (_, __) =>
+                SizedBox(width: ResponsiveUtils.spacing(context, 8)),
+            itemBuilder: (context, index) {
+              final filter = filters[index];
+              final isActive = active == filter.status;
+              final count = cubit.statusCounts[filter.countKey] ?? 0;
+
+              return GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  cubit.filterByStatus(filter.status);
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: ResponsiveUtils.spacing(context, 14),
+                    vertical: ResponsiveUtils.spacing(context, 8),
+                  ),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? (_isDark ? AppTheme.purple : AppTheme.purple)
+                        : (_isDark
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.white),
+                    borderRadius: ResponsiveUtils.borderRadius(context, 20),
+                    border: Border.all(
+                      color: isActive
+                          ? AppTheme.purple
+                          : (_isDark
+                              ? Colors.white.withOpacity(0.12)
+                              : Colors.black.withOpacity(0.06)),
+                    ),
+                    boxShadow: isActive || _isDark
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        filter.label.tr(),
+                        style: TextStyle(
+                          fontSize: ResponsiveUtils.font(context, 12),
+                          fontWeight: FontWeight.w600,
+                          color: isActive
+                              ? Colors.white
+                              : (_isDark
+                                  ? Colors.white.withOpacity(0.85)
+                                  : AppTheme.black),
+                        ),
+                      ),
+                      SizedBox(width: ResponsiveUtils.spacing(context, 6)),
+                      Text(
+                        '$count',
+                        style: TextStyle(
+                          fontSize: ResponsiveUtils.font(context, 12),
+                          fontWeight: FontWeight.w700,
+                          color: isActive
+                              ? Colors.white.withOpacity(0.9)
+                              : (_isDark
+                                  ? AppTheme.lightGreen
+                                  : AppTheme.purple),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         );
       },
@@ -648,7 +731,11 @@ class _InVoiceScreenState extends State<InVoiceScreen>
               ResponsiveUtils.spacing(context, 16),
               context.bottomSafePadding + kBottomNavigationBarHeight + 16,
             ),
-            itemCount: invoices.length + (state is InVoiceGetLoading && state.isLoadingMore ? 1 : 0),
+            itemCount: invoices.length +
+                ((state is InVoiceGetSuccess && state.isLoadingMore) ||
+                        (state is InVoiceGetLoading && state.isLoadingMore)
+                    ? 1
+                    : 0),
             itemBuilder: (context, index) {
               // Show loading indicator at the bottom
               if (index == invoices.length) {
